@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claudesidian Imagen</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app" x-data="appState()" x-init="init()" x-cloak>
+    <!-- Settings overlay -->
+    <div class="settings-overlay" x-show="showSettings" @click.self="closeSettings()">
+      <div class="settings-modal">
+        <h2>API 配置</h2>
+        <label>平台模板：
+          <select x-model="settingsTemplate" @change="applyTemplate()">
+            <option value="">— 选择平台 —</option>
+            <option value="gpt-best">gpt-best</option>
+            <option value="gemini-official">官方 Gemini (OpenAI 兼容)</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+        </label>
+        <label>Base URL：<input x-model="draftConfig.api.baseUrl" placeholder="https://.../v1" /></label>
+        <label>API Key：<input x-model="draftConfig.api.apiKey" type="password" /></label>
+        <label>文本模型：<input x-model="draftConfig.api.textModel" /></label>
+        <label>图像模型：<input x-model="draftConfig.api.imageModel" /></label>
+        <div class="settings-actions">
+          <button @click="saveSettings()">保存</button>
+          <button @click="closeSettings()" x-show="configReady">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <header class="topbar">
+      <h1>Claudesidian Imagen</h1>
+      <button @click="openSettings()">⚙ 设置</button>
+    </header>
+
+    <main class="main-grid" x-show="configReady">
+      <!-- Sidebar: vault tree -->
+      <aside class="sidebar">
+        <h3>Vault 文件</h3>
+        <div class="tree">
+          <template x-for="node in tree" :key="node.relPath">
+            <div>
+              <div class="tree-row" @click="toggleNode(node)" :class="{ selected: selectedPath === node.relPath }">
+                <span x-text="node.isDir ? (node.expanded ? '▼' : '▶') : '📄'"></span>
+                <span x-text="node.name"></span>
+              </div>
+              <div x-show="node.isDir && node.expanded" style="padding-left: 16px;">
+                <template x-for="child in (node.children || [])" :key="child.relPath">
+                  <div class="tree-row" @click="onNodeClick(child)" :class="{ selected: selectedPath === child.relPath }">
+                    <span x-text="child.isDir ? (child.expanded ? '▼' : '▶') : '📄'"></span>
+                    <span x-text="child.name"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </aside>
+
+      <!-- Center: article preview + type selector + fields -->
+      <section class="center">
+        <div x-show="!selectedFile" class="empty">← 在左侧选一篇 .md 文章</div>
+
+        <div x-show="selectedFile">
+          <h3 x-text="selectedFile?.name"></h3>
+          <pre class="article-preview" x-text="articleContent"></pre>
+
+          <div class="type-selector">
+            <button @click="selectType('xhs-cover')" :class="{ active: type === 'xhs-cover' }">小红书封面</button>
+            <button @click="selectType('wechat-cover')" :class="{ active: type === 'wechat-cover' }">公众号封面</button>
+            <button @click="selectType('wechat-illust')" :class="{ active: type === 'wechat-illust' }">公众号插图</button>
+          </div>
+
+          <div x-show="type" class="extract-section">
+            <button @click="doExtract()" :disabled="extracting" x-text="extracting ? '提取中…' : '提取 prompt'"></button>
+          </div>
+
+          <div x-show="fields" class="fields-editor">
+            <template x-for="(_, key) in (fields || {})" :key="key">
+              <label>
+                <span x-text="key"></span>
+                <input x-model="fields[key]" />
+              </label>
+            </template>
+            <button @click="doGenerate()" :disabled="generating" x-text="generating ? '生成中…' : '生成 4 张'"></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: 4 image variants grid -->
+      <section class="variants" x-show="results.length > 0">
+        <h3>选一张采纳</h3>
+        <div class="grid-2x2">
+          <template x-for="(r, i) in results" :key="i">
+            <div class="variant" :class="{ selected: selectedIndex === i, error: r.kind === 'error' || r.kind === 'none' }" @click="selectVariant(i)">
+              <template x-if="r.kind === 'url'">
+                <img :src="r.url" />
+              </template>
+              <template x-if="r.kind === 'base64'">
+                <img :src="`data:${r.mimeType};base64,${r.base64}`" />
+              </template>
+              <template x-if="r.kind === 'error' || r.kind === 'none'">
+                <div class="variant-error">
+                  <p x-text="r.kind === 'error' ? r.message : '未识别到图片'"></p>
+                  <button @click.stop="retryVariant(i)">重试</button>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+        <button @click="doSave()" :disabled="selectedIndex === null || saving" x-text="saving ? '保存中…' : '采纳并保存'"></button>
+        <p x-show="lastWikilink" class="toast">已保存。Wikilink 已复制：<code x-text="lastWikilink"></code></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/vendor/alpine.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</body>
+</html>
