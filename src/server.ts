@@ -5,7 +5,8 @@ import { handleVaultRoutes } from "./routes/vault.ts";
 import { handleExtractRoute } from "./routes/extract.ts";
 import { handleGenerateRoute } from "./routes/generate.ts";
 import { handleSaveRoute } from "./routes/save.ts";
-import { STYLE_PRESETS, STYLE_PRESETS_BY_TYPE, type ImageType } from "./core/prompt-templates.ts";
+import { handleBrandRoutes } from "./routes/brand.ts";
+import { STYLE_FAMILIES, getStyleFamiliesForType, type ImageType } from "./core/prompt-templates.ts";
 import { isAbsolute, join, relative } from "node:path";
 import { existsSync } from "node:fs";
 
@@ -69,15 +70,22 @@ async function handleApi(req: Request, ctx: ServerContext): Promise<Response | n
     return Response.json({ ok: true });
   }
   if (path === "/api/styles" && req.method === "GET") {
-    // Expose preset styles to the UI (label only, no internal descriptor).
-    // Optional ?type=xhs-cover|wechat-cover|wechat-illust filters to one type.
+    // Expose style families to the UI. Returns family key + label +
+    // brandReady flag (for ⭐ hinting). Optional ?type filter returns only
+    // families supporting that type — the UI always calls with ?type.
     const t = url.searchParams.get("type") as ImageType | null;
-    const list = t && STYLE_PRESETS_BY_TYPE[t] ? STYLE_PRESETS_BY_TYPE[t] : STYLE_PRESETS;
+    const list = t ? getStyleFamiliesForType(t) : STYLE_FAMILIES;
     return Response.json({
-      styles: list.map((s) => ({ key: s.key, label: s.label })),
+      styles: list.map((f) => ({
+        key: f.key,
+        label: f.label,
+        brandReady: f.brandReady === true,
+        supports: f.supports,
+      })),
     });
   }
   if (path.startsWith("/api/vault/")) return handleVaultRoutes(req, ctx);
+  if (path.startsWith("/api/brand/")) return handleBrandRoutes(req, ctx);
   if (path === "/api/extract") return handleExtractRoute(req, ctx);
   if (path === "/api/generate") return handleGenerateRoute(req, ctx);
   if (path === "/api/save") return handleSaveRoute(req, ctx);

@@ -80,13 +80,35 @@
           </div>
 
           <div x-show="type" class="fields-editor">
+            <label x-show="type !== 'wechat-illust'">
+              <span>封面标题文字（会渲染到图里，可改）</span>
+              <input
+                x-model="titleOverride"
+                type="text"
+                style="width: 100%; padding: 6px; font-size: 13px;"
+                placeholder="比如：从入门到放弃"
+              />
+              <div x-show="titleOverride !== detectedTitle" style="font-size: 11px; color: #888; margin-top: 4px;">
+                已改写标题。
+                <a href="#" @click.prevent="titleOverride = detectedTitle" style="color: #1a4d8f;">恢复原标题</a>
+              </div>
+            </label>
             <label>
-              <span>风格</span>
+              <span>
+                风格家族
+                <span x-show="currentFamilyAnchored" class="anchor-badge" title="已锚定参考图，生成会基于此基准">
+                  📌 已锚定
+                </span>
+              </span>
               <select x-model="styleKey" style="width: 100%; padding: 6px; font-size: 13px;">
                 <template x-for="s in stylePresets" :key="s.key">
-                  <option :value="s.key" x-text="s.label"></option>
+                  <option :value="s.key" x-text="(anchoredFamilies.has(s.key) ? '📌 ' : '') + s.label"></option>
                 </template>
               </select>
+              <div x-show="currentFamilyAnchored" style="font-size: 11px; color: #888; margin-top: 4px;">
+                该家族已设参考基准。
+                <a href="#" @click.prevent="clearAnchor()" style="color: #c33;">取消基准</a>
+              </div>
             </label>
             <label>
               <span>额外指令（可选）</span>
@@ -97,7 +119,20 @@
                 placeholder="比如：主色调用绿色；画面里有一只猫"
               ></textarea>
             </label>
-            <button @click="doGenerate()" :disabled="generating || !styleKey" x-text="generating ? '生成中…' : '生成 4 张'"></button>
+            <label>
+              <span>生成数量</span>
+              <div class="count-picker">
+                <template x-for="n in [1, 2, 3, 4]" :key="n">
+                  <button
+                    type="button"
+                    @click="count = n"
+                    :class="{ active: count === n }"
+                    x-text="n"
+                  ></button>
+                </template>
+              </div>
+            </label>
+            <button @click="doGenerate()" :disabled="generating || !styleKey" x-text="generating ? '生成中…' : `生成 ${count} 张`"></button>
           </div>
         </div>
       </section>
@@ -105,7 +140,7 @@
       <!-- Right: 4 image variants grid -->
       <section class="variants" x-show="results.length > 0">
         <h3>选一张采纳</h3>
-        <div class="grid-2x2">
+        <div class="results-grid" :style="`grid-template-columns: ${gridColumns};`">
           <template x-for="(r, i) in results" :key="i">
             <div
               class="variant"
@@ -125,6 +160,22 @@
                   <button @click.stop="retryVariant(i)">重试</button>
                 </div>
               </template>
+              <template x-if="r.kind === 'url' || r.kind === 'base64'">
+                <div class="variant-toolbar">
+                  <button
+                    class="variant-btn zoom-btn"
+                    @click.stop="zoomResult(r)"
+                    title="放大查看"
+                  >🔍</button>
+                  <button
+                    class="variant-btn anchor-btn"
+                    :disabled="anchoring === styleKey"
+                    @click.stop="anchorVariant(i)"
+                    :title="'把这张设为「' + (stylePresets.find(s => s.key === styleKey)?.label || styleKey) + '」的基准'"
+                    x-text="anchoring === styleKey ? '设置中…' : '🔗 设为基准'"
+                  ></button>
+                </div>
+              </template>
             </div>
           </template>
         </div>
@@ -132,6 +183,18 @@
         <p x-show="lastWikilink" class="toast">已保存。Wikilink 已复制：<code x-text="lastWikilink"></code></p>
       </section>
     </main>
+
+    <!-- Zoom lightbox: click anywhere outside the image (or press × / Esc) to close -->
+    <div
+      class="zoom-overlay"
+      x-show="zoomedImageSrc"
+      x-transition.opacity
+      @click.self="closeZoom()"
+      @keydown.escape.window="closeZoom()"
+    >
+      <button class="zoom-close" @click="closeZoom()" title="关闭 (Esc)">×</button>
+      <img :src="zoomedImageSrc" class="zoom-image" @click.stop />
+    </div>
   </div>
 
   <!-- app.js must load BEFORE alpine so window.appState() exists when Alpine.start() runs -->

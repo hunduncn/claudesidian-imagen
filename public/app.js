@@ -39,11 +39,21 @@ window.appState = function appState() {
     stylePresets: [],
     styleKey: "",
     extraPrompt: "",
+    titleOverride: "",   // user-editable title for rendering into the image
+    detectedTitle: "",   // what the server would use by default (H1 > filename)
+    count: 4,            // how many variants to generate in one batch (1-4)
     generating: false,
     results: [],
     selectedIndex: null,
     saving: false,
     lastWikilink: "",
+
+    // brand anchors: familyKey set → has a pinned reference image
+    anchoredFamilies: new Set(),
+    anchoring: null, // familyKey currently being set/removed
+
+    // zoom lightbox
+    zoomedImageSrc: "",
 
     // transient error banner
     errorToast: "",
@@ -57,6 +67,23 @@ window.appState = function appState() {
         case "wechat-illust": return "16 / 9";
         default:              return "1 / 1";
       }
+    },
+
+    // grid columns: wechat types are wide (2.35:1, 16:9), one-per-row reads
+    // better than squeezing two; xhs is portrait (3:4) so 2x2 still fits.
+    get gridColumns() {
+      return this.type === "xhs-cover" ? "1fr 1fr" : "1fr";
+    },
+
+    // ───── zoom lightbox ─────
+
+    zoomResult(r) {
+      if (r.kind === "url")    this.zoomedImageSrc = r.url;
+      if (r.kind === "base64") this.zoomedImageSrc = `data:${r.mimeType};base64,${r.base64}`;
+    },
+
+    closeZoom() {
+      this.zoomedImageSrc = "";
     },
 
     // flat visible tree for arbitrary-depth rendering
@@ -87,6 +114,7 @@ window.appState = function appState() {
       await this.refreshConfig();
       if (this.configReady) {
         await this.loadTree();
+        await this.loadAnchors();
       } else {
         this.showSettings = true;
       }
@@ -95,8 +123,92 @@ window.appState = function appState() {
     async loadStylesForType(type) {
       const r = await fetch(`/api/styles?type=${encodeURIComponent(type)}`).then((r) => r.json());
       this.stylePresets = r.styles || [];
-      // Reset to first preset of this type — keys are type-prefixed so cross-type keys never match.
-      this.styleKey = this.stylePresets.length > 0 ? this.stylePresets[0].key : "";
+      // Preserve current selection if the family supports the new type;
+      // otherwise fall back to the first brand-ready family, or the first
+      // family in the list.
+      const current = this.stylePresets.find((s) => s.key === this.styleKey);
+      if (!current) {
+        const brandReady = this.stylePresets.find((s) => s.brandReady);
+        this.styleKey = brandReady ? brandReady.key : (this.stylePresets[0]?.key ?? "");
+      }
+    },
+
+    get currentFamilyAnchored() {
+      return this.styleKey && this.anchoredFamilies.has(this.styleKey);
+    },
+
+    // ───── brand anchors ─────
+
+    async loadAnchors() {
+      try {
+        const r = await fetch("/api/brand/anchors").then((r) => r.json());
+        this.anchoredFamilies = new Set((r.anchors || []).map((a) => a.familyKey));
+      } catch {
+        this.anchoredFamilies = new Set();
+      }
+    },
+
+    // Convert a variant result (url | base64) into a data URL the server can
+    // store as an anchor. For base64 results this is trivial; for remote
+    // URLs we have to fetch the bytes and base64 them.
+    async _variantToDataUrl(variant) {
+      if (variant.kind === "base64") {
+        return `data:${variant.mimeType};base64,${variant.base64}`;
+      }
+      if (variant.kind === "url") {
+        const resp = await fetch(variant.url);
+        const blob = await resp.blob();
+        return await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+      }
+      throw new Error("无法把该变体作为基准");
+    },
+
+    async anchorVariant(i) {
+      const variant = this.results[i];
+      if (!variant || !this.styleKey) return;
+      this.anchoring = this.styleKey;
+      try {
+        const imageDataUrl = await this._variantToDataUrl(variant);
+        const r = await fetch("/api/brand/anchor", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ familyKey: this.styleKey, imageDataUrl }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          this.showError("设置基准失败：" + (j.error || r.status));
+          return;
+        }
+        this.anchoredFamilies = new Set([...this.anchoredFamilies, this.styleKey]);
+      } catch (e) {
+        this.showError("设置基准失败：" + (e?.message || e));
+      } finally {
+        this.anchoring = null;
+      }
+    },
+
+    async clearAnchor() {
+      if (!this.styleKey) return;
+      this.anchoring = this.styleKey;
+      try {
+        const r = await fetch(`/api/brand/anchor?familyKey=${encodeURIComponent(this.styleKey)}`, {
+          method: "DELETE",
+        });
+        if (!r.ok) {
+          this.showError("取消基准失败");
+          return;
+        }
+        const next = new Set(this.anchoredFamilies);
+        next.delete(this.styleKey);
+        this.anchoredFamilies = next;
+      } finally {
+        this.anchoring = null;
+      }
     },
 
     // ───── config ─────
@@ -176,6 +288,22 @@ window.appState = function appState() {
       this.lastWikilink = "";
       const r = await fetch(`/api/vault/read?path=${encodeURIComponent(node.relPath)}`).then((r) => r.json());
       this.articleContent = r.content || "";
+      // Re-derive the title: first H1 if present, else filename (without .md).
+      // Mirrors the server's deriveArticleTitle so the UI shows what the model
+      // would render — and the user can edit it before generating.
+      this.detectedTitle = this._deriveTitle(this.articleContent, node.name);
+      this.titleOverride = this.detectedTitle;
+    },
+
+    _deriveTitle(markdown, filename) {
+      let body = markdown || "";
+      if (body.startsWith("---\n")) {
+        const end = body.indexOf("\n---", 4);
+        if (end >= 0) body = body.slice(end + 4);
+      }
+      const m = body.match(/^#\s+(.+?)\s*$/m);
+      if (m && m[1]) return m[1].trim();
+      return (filename || "").replace(/\.md$/i, "");
     },
 
     // ───── extract / generate / save ─────
@@ -188,13 +316,19 @@ window.appState = function appState() {
     },
 
     _generateBody(count) {
-      return {
+      const body = {
         type: this.type,
         styleKey: this.styleKey,
         sourcePath: this.selectedPath,
         extraPrompt: this.extraPrompt,
         count,
       };
+      // Only send an override when the user actually edited the title. This
+      // keeps the server's default H1-detection path as the happy path.
+      if (this.titleOverride && this.titleOverride !== this.detectedTitle) {
+        body.titleOverride = this.titleOverride;
+      }
+      return body;
     },
 
     async doGenerate() {
@@ -206,7 +340,7 @@ window.appState = function appState() {
         const r = await fetch("/api/generate", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(this._generateBody(4)),
+          body: JSON.stringify(this._generateBody(this.count)),
         }).then((r) => r.json());
         if (r.error) {
           this.showError("生成失败：" + r.error);

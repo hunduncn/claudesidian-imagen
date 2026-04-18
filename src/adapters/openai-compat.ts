@@ -13,6 +13,12 @@ export interface TextCompletionRequest {
 export interface ImageCompletionRequest {
   model: string;
   prompt: string;
+  /**
+   * Optional reference image (data:image/<mime>;base64,<...>). When present,
+   * the request becomes multimodal: [text prompt, image_url]. Used for brand
+   * anchoring so successive generations stay visually consistent.
+   */
+  referenceImageDataUrl?: string;
 }
 
 interface ChatResponse {
@@ -108,9 +114,19 @@ export async function imageCompletion(
   client: OpenAIClient,
   req: ImageCompletionRequest,
 ): Promise<string> {
+  // If a reference image is supplied, switch to the multimodal content-array
+  // form. Otherwise keep the plain-string body — some relays are stricter
+  // about unexpected shapes, and a plain string is the lowest-friction form.
+  const userContent: unknown = req.referenceImageDataUrl
+    ? [
+        { type: "text", text: req.prompt },
+        { type: "image_url", image_url: { url: req.referenceImageDataUrl } },
+      ]
+    : req.prompt;
+
   const json = await postChat(client, {
     model: req.model,
-    messages: [{ role: "user", content: req.prompt }],
+    messages: [{ role: "user", content: userContent }],
   });
   return json.choices[0]?.message?.content ?? "";
 }

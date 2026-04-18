@@ -85,9 +85,23 @@ export function buildExtractSystemPrompt(type: ImageType): string {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Simple flow: no LLM extract. User picks type + style preset, server reads
+ * Simple flow: no LLM extract. User picks type + style family, server reads
  * the article directly and builds a strongly-typed prompt with article title
  * baked in. This is what the UI uses post-v0.2.
+ *
+ * Family architecture (v0.3+):
+ *   A "family" is a visual identity that may span multiple image types. When
+ *   a brand-type self-media account commits to e.g. 莫兰迪, they want xhs
+ *   covers, 公众号 banners, AND inline illustrations to all read as the same
+ *   brand. Each family declares which types it `supports` and carries a
+ *   per-type `descriptor` tightened for that type's layout conventions.
+ *
+ *   Keys are globally unique. UI calls /api/styles?type=xxx to get families
+ *   supporting that type only.
+ *
+ *   `StylePreset` is the legacy per-type shape. It is kept as the public
+ *   return type of getStylePreset() so generate.ts / buildSimpleImagePrompt
+ *   don't need to change. Internally we derive it from the family table.
  * ───────────────────────────────────────────────────────────────────────── */
 
 export interface StylePreset {
@@ -99,67 +113,454 @@ export interface StylePreset {
   descriptor: string;
 }
 
-/**
- * Per-type preset library. Each type gets its own set of trending styles
- * curated for that platform's visual conventions. Keys are globally unique
- * across types so `getStylePreset(key)` can resolve without knowing the type.
- */
-export const STYLE_PRESETS_BY_TYPE: Record<ImageType, StylePreset[]> = {
-  "xhs-cover": [
-    { key: "xhs-dopamine",       label: "多巴胺撞色",      descriptor: "dopamine color clash, saturated candy palette (hot pink + lime + electric blue), chunky bold sans-serif Chinese title, solid color blocks framing a cutout subject, high-energy Gen-Z pop poster" },
-    { key: "xhs-maillard",       label: "美拉德焦糖",      descriptor: "Maillard brown palette, caramel coffee cream tones, moody autumn warm film grain, quiet luxury mood, espresso beige editorial" },
-    { key: "xhs-y2k",            label: "Y2K 千禧辣妹",    descriptor: "Y2K chrome bubble typography, frosted glass sparkle, silver blue gradient, butterfly and star stickers, 2000s web aesthetic" },
-    { key: "xhs-film-ambient",   label: "氛围感胶片",      descriptor: "35mm film grain lifestyle photo, hazy window light, centered Chinese title inside translucent soft-blur bar, effortless mood, Kodak Portra tones" },
-    { key: "xhs-magazine-collage", label: "杂志拼贴",       descriptor: "magazine collage cutout, torn paper tape scribble, product knockout arrangement, scrapbook hand-annotated, zine layout" },
-    { key: "xhs-new-chinese",    label: "新中式水墨",      descriptor: "new Chinese ink wash background, vermilion seal stamp, contemporary subject with classical brushstroke, rice paper texture, oriental minimalism" },
-    { key: "xhs-sporty-barbie",  label: "运动芭比",        descriptor: "sporty Barbie hot pink, rhinestone sparkle and athletic tape stripes, glossy crop top flatlay, pink and gray color block, Gen-Z sportswear" },
-    { key: "xhs-porcelain",      label: "清冷白瓷 (淡人)",  descriptor: "cool porcelain white minimalism, pale blue negative space, hairline serif Chinese title, single floating object, muted quiet aesthetic" },
-    { key: "xhs-handwritten",    label: "手写便签",        descriptor: "handwritten marker notebook, kraft paper or cream background, highlighter swipes with doodled arrows, study notes sticker, bullet journal cover" },
-    { key: "xhs-xpiritual",      label: "玄学赛博拼贴",    descriptor: "mystical tarot collage, halftone glitch occult, neon laser zodiac, post-internet spiritual, xpiritualism aesthetic" },
-    { key: "xhs-oil-portrait",   label: "厚涂油画人像",    descriptor: "impasto oil painting portrait, visible brushstroke texture, Renaissance chiaroscuro lighting, painterly editorial cover, thick paint portrait with modern Chinese title overlay" },
-    { key: "xhs-raw-snapshot",   label: "原相机生图",      descriptor: "raw iPhone flash snapshot, overexposed candid, unfiltered anti-aesthetic, real life crop, casual phone photo cover with one-line title" },
-  ],
-  "wechat-cover": [
-    { key: "wc-hk-cinema",       label: "港风电影海报",    descriptor: "1980s Hong Kong cinema poster, neon sign tungsten halo, Wong Kar-wai film grain, vertical Chinese movie type on the side, retro Cantopop banner" },
-    { key: "wc-chinese-landscape", label: "新中式山水",     descriptor: "minimalist Chinese landscape ink wash stretched across panoramic banner, wide gongbi line art, vast negative space reserved for restrained serif title, new Chinese editorial banner" },
-    { key: "wc-swiss",           label: "瑞士极简排版",    descriptor: "Swiss International Typographic Style, grid layout, modern Chinese grotesque sans (思源黑体 style), single accent color bar, strict hierarchy, minimal typographic banner" },
-    { key: "wc-memphis",         label: "孟菲斯撞色",      descriptor: "Memphis design geometric, squiggles and confetti dots, postmodern 80s pastel and primary colors, playful geometric banner, Memphis Milano style" },
-    { key: "wc-risograph",       label: "Risograph 双色",  descriptor: "risograph two-color print, halftone misregistration, fluorescent pink and navy (or yellow and blue) overlay, paper fiber grain, riso zine banner" },
-    { key: "wc-cinematic-photo", label: "胶片人文摄影",    descriptor: "cinematic 2.35 letterbox photograph, teal-orange film grade, documentary wide portrait, tiny corner typography, film photo essay banner" },
-    { key: "wc-newsprint",       label: "复古报刊版式",    descriptor: "vintage newspaper masthead, yellowed newsprint texture, large serif 宋体 Chinese headline, column rule, ink-stamp date, broadsheet editorial layout" },
-    { key: "wc-vaporwave-east",  label: "东方蒸汽波",      descriptor: "oriental vaporwave, mauve and cyan gradient with grid horizon, terracotta warrior or Buddha bust, Latin plus hanzi mix, Chinese vaporwave banner" },
-    { key: "wc-maximalist",      label: "极繁主义拼贴",    descriptor: "maximalist editorial collage, layered halftone faces, torn paper stamped slogans, dense mixed media banner, anti-minimal magazine spread" },
-    { key: "wc-liquid-chrome",   label: "液态金属",        descriptor: "liquid chrome 3D blob, studio HDRI reflection, single metallic hero object, soft gradient backdrop, Octane render banner" },
-    { key: "wc-watercolor-essay", label: "水彩淡墨散文",   descriptor: "loose watercolor wash with soft bleed edges, pale indigo and sepia, hand-brush Chinese lettering, literary essay banner, soft ink wash editorial" },
-    { key: "wc-terminal",        label: "极客终端",        descriptor: "dark charcoal terminal aesthetic, monospace code font, ASCII rules, blinking cursor accent, phosphor green highlights, developer blog banner" },
-  ],
-  "wechat-illust": [
-    { key: "wi-naive-scribble",  label: "天真涂鸦",        descriptor: "naive childlike scribble illustration, wobbly hand-drawn line, crayon and marker texture, imperfect proportion, loose editorial doodle, anti-AI handmade feel" },
-    { key: "wi-risograph",       label: "Risograph 印刷",  descriptor: "risograph editorial illustration, two-color halftone, misregistered ink overlay, rough paper texture, print zine illustration" },
-    { key: "wi-mixed-collage",   label: "混合媒介拼贴",    descriptor: "mixed media editorial collage, photo cutouts with painted shapes, scanned textures and typography fragments, layered surreal composition, magazine collage illustration" },
-    { key: "wi-painterly",       label: "厚涂油画编辑",    descriptor: "painterly editorial illustration, thick oil brushstroke, cinematic lighting on a single symbolic figure, New Yorker cover style, conceptual painted metaphor" },
-    { key: "wi-blobby-gradient", label: "Blobby 液态渐变",  descriptor: "blobby gradient mesh illustration, bulbous organic shapes, smooth gradient blur, dreamy floating forms, liquid abstract editorial" },
-    { key: "wi-2d-3d-hybrid",    label: "2D+3D 混合",      descriptor: "flat 2D vector characters interacting with Blender 3D props, hybrid-dimension illustration, soft ambient occlusion shadow, Spline isometric feel, conceptual 2D-3D composite" },
-    { key: "wi-psychedelic",     label: "迷幻极繁",        descriptor: "1970s psychedelic maximalist, hyper-saturated swirls, kaleidoscopic surreal composition, dreamlike dense illustration, acid poster editorial" },
-    { key: "wi-linocut",         label: "木刻版画",        descriptor: "linocut woodblock print illustration, bold carved black lines, gouge mark texture, folk craft editorial, reductive print illustration" },
-    { key: "wi-gongbi-modern",   label: "新工笔叙事",      descriptor: "gongbi fine-line painting applied to modern scene, mineral pigment greens and vermilions, contemporary Chinese brush illustration, traditional-meets-modern oriental narrative" },
-    { key: "wi-pixel-lofi",      label: "Lo-Fi 像素",      descriptor: "lo-fi pixel art scene, 16-bit dithered gradient, atmospheric moody pixel, chill editorial pixel illustration, retro game scene mood" },
-    { key: "wi-papercut",        label: "剪纸民艺",        descriptor: "layered paper-cut silhouettes, bold positive-negative shape play, earthy folk palette, subtle drop shadow, Chinese papercut editorial" },
-    { key: "wi-surreal-metaphor", label: "超现实单隐喻",   descriptor: "conceptual surreal single metaphor (one impossible object), muted editorial palette, cinematic soft light, op-ed illustration, minimalist surrealism" },
-  ],
-};
-
-/** Flat list of all presets across all types. Consumed by the legacy /api/styles (no ?type filter). */
-export const STYLE_PRESETS: StylePreset[] = ([] as StylePreset[]).concat(
-  STYLE_PRESETS_BY_TYPE["xhs-cover"],
-  STYLE_PRESETS_BY_TYPE["wechat-cover"],
-  STYLE_PRESETS_BY_TYPE["wechat-illust"],
-);
-
-export function getStylePreset(key: string): StylePreset | undefined {
-  return STYLE_PRESETS.find((s) => s.key === key);
+export interface StyleFamily {
+  /** Stable key, globally unique across all families. */
+  key: string;
+  /** 中文标签，下拉显示用。 */
+  label: string;
+  /** Which image types this family provides a descriptor for. */
+  supports: ImageType[];
+  /**
+   * Per-type rendered descriptor. A family MUST have an entry for every
+   * type in `supports`. English-first (image models respond better), with
+   * locked hex color values and typography direction where possible so
+   * multiple generations feel like the same brand.
+   */
+  descriptors: Partial<Record<ImageType, string>>;
+  /**
+   * True for families intended as stable brand presets (daily driver for
+   * brand-type self-media accounts). Drives UI hinting like ⭐.
+   */
+  brandReady?: boolean;
 }
 
+/**
+ * Full family library. Organized as:
+ *   1. Cross-type daily-driver families (brand-ready) — consistent across
+ *      all three image types. These are the recommended picks for anyone
+ *      building a stable visual identity.
+ *   2. Cross-type aesthetic families — a trending look consistent across
+ *      two or three types.
+ *   3. Type-locked families — platform-specific trending styles that only
+ *      make sense in one context (e.g. Y2K辣妹 is xhs-native).
+ */
+export const STYLE_FAMILIES: StyleFamily[] = [
+  // ─── brand-ready daily drivers (cross-type) ─────────────────────────────
+  {
+    key: "business-clean",
+    label: "商务简洁 ⭐",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    brandReady: true,
+    descriptors: {
+      "xhs-cover":
+        "business clean minimalism, pure white background (#FFFFFF) with navy accent (#1F3A5F) and muted slate gray, centered modern Chinese sans-serif title in bold weight, single authoritative product or abstract icon shot, generous negative space, corporate trust aesthetic, no decorative noise",
+      "wechat-cover":
+        "business clean banner, pure white (#FFFFFF) with navy (#1F3A5F) accent bar, restrained modern sans-serif Chinese headline left-aligned, single clean object on right, thin hairline rule divider, editorial corporate masthead, strictly no clutter",
+      "wechat-illust":
+        "business clean editorial illustration, flat minimal geometric composition, navy (#1F3A5F) + muted slate gray + single warm accent (#D4A373), clean vector linework, single conceptual metaphor, negative-space-heavy, corporate-report illustration, no text",
+    },
+  },
+  {
+    key: "editorial-minimal",
+    label: "编辑极简 ⭐",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    brandReady: true,
+    descriptors: {
+      "xhs-cover":
+        "editorial minimal magazine cover, off-white paper background (#F4F1EC), deep charcoal text (#2A2A2A) with a thin hairline serif title (思源宋体 / Noto Serif CJK), one small tasteful photo or illustration anchor, vast margin, restrained Kinfolk-style quiet luxury, Japan-magazine editorial feel",
+      "wechat-cover":
+        "editorial minimal masthead banner, off-white paper (#F4F1EC), deep charcoal (#2A2A2A) hairline serif title (宋体 style) small and elegant, thin horizontal rule, one lifestyle black-and-white photograph on one side, vast negative space, Kinfolk editorial banner",
+      "wechat-illust":
+        "editorial minimal illustration, off-white paper (#F4F1EC) + deep charcoal line (#2A2A2A) + single sage or terracotta accent, single understated pen-and-ink drawing or black-and-white photo, quiet Kinfolk-style composition, lots of negative space, no text",
+    },
+  },
+  {
+    key: "knowledge-blogger",
+    label: "知识博主 ⭐",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    brandReady: true,
+    descriptors: {
+      "xhs-cover":
+        "knowledge blogger infographic cover, cream or light gray background (#F5F1E8), bold modern Chinese sans-serif title with one highlight-colored keyword (mustard #E8B83B), small simple diagram element (arrow / bracket / checklist dot), clean and legible, 'study notes' trustworthy tone",
+      "wechat-cover":
+        "knowledge blogger banner, cream background (#F5F1E8), bold modern sans-serif Chinese headline left side with one mustard (#E8B83B) highlight bar, small icon or diagram on right, clean pedagogical masthead, study-notes credibility",
+      "wechat-illust":
+        "knowledge blogger diagram illustration, cream (#F5F1E8) + charcoal stroke (#2A2A2A) + mustard accent (#E8B83B), clean flat vector infographic style, single conceptual schematic (flow arrow / venn / bracket), pedagogical clarity, no dense text labels",
+    },
+  },
+
+  // ─── cross-type aesthetic families ──────────────────────────────────────
+  {
+    key: "morandi",
+    label: "莫兰迪",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    descriptors: {
+      "xhs-cover":
+        "Morandi muted palette (dusty sage #B7B39E, pale clay #C8A98A, foggy blue #9DA6A8, cream #E8E1D3), chalky matte texture, hairline modern Chinese sans or thin serif title centered, single quiet still-life object, painterly restraint, quiet luxury",
+      "wechat-cover":
+        "Morandi muted palette banner (dusty sage #B7B39E, pale clay #C8A98A, foggy blue #9DA6A8), chalky matte finish, thin serif Chinese title left-aligned with generous margin, one quiet still-life object on the right, painterly editorial calm",
+      "wechat-illust":
+        "Morandi palette painterly illustration (dusty sage #B7B39E, pale clay #C8A98A, foggy blue #9DA6A8, cream #E8E1D3), soft chalky matte brushwork, single quiet symbolic object or figure, gentle gradient background, painterly editorial calm, no text",
+    },
+  },
+  {
+    key: "new-chinese",
+    label: "新中式水墨",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    descriptors: {
+      "xhs-cover":
+        "new Chinese ink wash (水墨) aesthetic, rice paper texture (#EFE7D6) background with soft sumi ink bleed, vermilion (#C8372D) seal stamp accent, restrained serif Chinese title (宋体) vertical or centered, one classical brushstroke subject, oriental minimalism",
+      "wechat-cover":
+        "new Chinese landscape ink-wash banner, rice paper background (#EFE7D6), soft sumi ink wash stretched across panoramic strip, gongbi fine-line mountain silhouettes, vast negative space, restrained serif (宋体) Chinese title on one side, vermilion (#C8372D) seal stamp",
+      "wechat-illust":
+        "new Chinese gongbi fine-line illustration, rice paper (#EFE7D6) background, mineral pigment vermilion (#C8372D) and sage green (#5A6E4D) accents, soft sumi ink wash, single classical-meets-modern subject, traditional Chinese brush editorial, no text",
+    },
+  },
+  {
+    key: "film-cinematic",
+    label: "胶片电影感",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    descriptors: {
+      "xhs-cover":
+        "35mm film grain lifestyle photo, Kodak Portra tones (warm skin, muted teal shadows), hazy window light, shallow depth of field, centered modern Chinese title inside a translucent soft-blur bar, effortless mood, analog film aesthetic",
+      "wechat-cover":
+        "cinematic 2.35 letterbox photograph, teal-orange film grade, subtle 35mm grain, documentary wide composition, tiny restrained corner typography, film photo essay banner, no heavy titles",
+      "wechat-illust":
+        "cinematic film-still illustration, teal-orange film grade with 35mm grain, shallow depth of field, single cinematic moment, soft window light, editorial film-photograph feel, no text",
+    },
+  },
+  {
+    key: "risograph",
+    label: "Risograph 双色印刷",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    descriptors: {
+      "xhs-cover":
+        "risograph two-color print, fluorescent pink (#FF3D7F) and navy (#1F2E6D) with halftone misregistration, rough paper fiber grain (#F5F0E6), chunky Chinese sans-serif title, zine cover aesthetic",
+      "wechat-cover":
+        "risograph two-color print banner, fluorescent pink (#FF3D7F) and navy (#1F2E6D) or yellow and blue overlay, halftone misregistration, paper fiber grain, chunky Chinese title left-aligned, print zine banner",
+      "wechat-illust":
+        "risograph editorial illustration, two-color halftone in fluorescent pink (#FF3D7F) and navy (#1F2E6D), misregistered ink overlay, rough paper texture, single conceptual figure or object, print zine illustration, no text",
+    },
+  },
+  {
+    key: "oil-painterly",
+    label: "厚涂油画",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    descriptors: {
+      "xhs-cover":
+        "impasto oil painting portrait, visible thick brushstroke texture, Renaissance chiaroscuro lighting on a single figure, warm burgundy and ochre palette, modern Chinese title overlay in restrained serif, painterly editorial cover",
+      "wechat-cover":
+        "painterly oil banner, wide panoramic oil-on-canvas scene, visible brushstroke texture, chiaroscuro warm palette (burgundy + ochre + deep teal shadow), single symbolic figure or still-life, restrained serif Chinese title in corner",
+      "wechat-illust":
+        "painterly editorial illustration, thick oil brushstroke, cinematic chiaroscuro lighting on a single symbolic figure, New Yorker cover style, burgundy-ochre-teal palette, conceptual painted metaphor, no text",
+    },
+  },
+  {
+    key: "magazine-collage",
+    label: "杂志拼贴",
+    supports: ["xhs-cover", "wechat-cover", "wechat-illust"],
+    descriptors: {
+      "xhs-cover":
+        "magazine collage cutout cover, torn paper edges with scotch tape, photo knockouts, handwritten marker scribbles and highlighter accents, cream kraft background (#E8DFC8), chunky display Chinese title pasted, scrapbook zine layout",
+      "wechat-cover":
+        "maximalist editorial collage banner, layered halftone faces, torn paper stamped slogans, handwritten annotations, cream kraft (#E8DFC8) background, dense mixed-media banner, anti-minimal magazine spread",
+      "wechat-illust":
+        "mixed media editorial collage illustration, photo cutouts combined with painted shapes, scanned paper textures and typography fragments, layered surreal composition, cream kraft (#E8DFC8) ground, magazine-collage editorial, no added text",
+    },
+  },
+
+  // ─── xhs-locked families ────────────────────────────────────────────────
+  {
+    key: "xhs-dopamine",
+    label: "多巴胺撞色",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "dopamine color clash, saturated candy palette (hot pink #FF3D7F + lime #B8E12A + electric blue #2A9DF4), chunky bold Chinese sans-serif title, solid color blocks framing a cutout subject, high-energy Gen-Z pop poster",
+    },
+  },
+  {
+    key: "xhs-maillard",
+    label: "美拉德焦糖",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "Maillard brown palette (caramel #B07A4A, espresso #4A2E1F, cream #E6D4B8), moody autumn warm film grain, quiet luxury mood, hairline serif Chinese title, single still-life object, espresso beige editorial",
+    },
+  },
+  {
+    key: "xhs-y2k",
+    label: "Y2K 千禧辣妹",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "Y2K chrome bubble typography, frosted glass sparkle, silver-blue gradient (#B8D4E8 → #6F8FAE), butterfly and star stickers, 2000s web aesthetic, glossy bubble Chinese title",
+    },
+  },
+  {
+    key: "xhs-sporty-barbie",
+    label: "运动芭比",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "sporty Barbie hot pink (#FF4FA3), rhinestone sparkle and athletic tape stripes, glossy crop top flatlay, pink and warm gray color block, Gen-Z sportswear poster, bold modern Chinese title",
+    },
+  },
+  {
+    key: "xhs-porcelain",
+    label: "清冷白瓷（淡人）",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "cool porcelain white minimalism, off-white (#F6F8F9) with pale icy blue accent (#D9E4EC), hairline thin serif Chinese title, single floating object (porcelain cup / lily), muted quiet 淡人 aesthetic, generous negative space",
+    },
+  },
+  {
+    key: "xhs-handwritten",
+    label: "手写便签",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "handwritten marker notebook cover, kraft paper (#D8C9A8) or cream background, yellow highlighter swipes with doodled arrows, stuck-on study note stickers, hand-lettered Chinese title, bullet journal aesthetic",
+    },
+  },
+  {
+    key: "xhs-xpiritual",
+    label: "玄学赛博拼贴",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "mystical tarot collage, halftone glitch occult imagery, neon laser (#FF3DCB) zodiac overlays on navy (#1A1140), post-internet spiritual xpiritualism aesthetic, layered cutouts, glitchy Chinese title",
+    },
+  },
+  {
+    key: "xhs-raw-snapshot",
+    label: "原相机生图",
+    supports: ["xhs-cover"],
+    descriptors: {
+      "xhs-cover":
+        "raw iPhone flash snapshot, slightly overexposed candid, unfiltered anti-aesthetic, real-life crop with mundane everyday subject, casual phone-photo cover, single plain Chinese title line bottom-center, deliberately 'no-effort' look",
+    },
+  },
+
+  // ─── wechat-cover-locked families ───────────────────────────────────────
+  {
+    key: "wc-hk-cinema",
+    label: "港风电影海报",
+    supports: ["wechat-cover"],
+    descriptors: {
+      // Intentionally no named director — safety classifiers refuse real-person
+      // references. The aesthetic is evoked through palette + grain + city motif.
+      "wechat-cover":
+        "1980s Hong Kong cinema poster banner, neon sign tungsten halo (#FFC866 glow + teal #1F6F6F shadow), moody rainy-street film grain, vertical Chinese movie-title type on the side, retro Cantopop-era urban masthead",
+    },
+  },
+  {
+    key: "wc-swiss",
+    label: "瑞士极简排版",
+    supports: ["wechat-cover"],
+    descriptors: {
+      "wechat-cover":
+        "Swiss International Typographic Style banner, grid layout, modern Chinese grotesque sans (思源黑体 style), single red (#D83B2A) accent bar, strict left-aligned hierarchy, minimal typographic masthead",
+    },
+  },
+  {
+    key: "wc-memphis",
+    label: "孟菲斯撞色",
+    supports: ["wechat-cover"],
+    descriptors: {
+      "wechat-cover":
+        "Memphis design geometric banner, squiggles and confetti dots, postmodern 80s palette (peach #F7A072 + mint #A4D4BB + primary blue #2F58CD), playful pattern banner, Memphis Milano style",
+    },
+  },
+  {
+    key: "wc-newsprint",
+    label: "复古报刊版式",
+    supports: ["wechat-cover"],
+    descriptors: {
+      "wechat-cover":
+        "vintage newspaper masthead, yellowed newsprint texture (#EBE2C8), large serif 宋体 Chinese headline, column rule dividers, ink-stamp date, broadsheet editorial layout",
+    },
+  },
+  {
+    key: "wc-vaporwave-east",
+    label: "东方蒸汽波",
+    supports: ["wechat-cover"],
+    descriptors: {
+      // Swapped terracotta warrior / Buddha (military + religious — both trigger
+      // safety) for neutral classical-sculpture motifs that read the same way.
+      "wechat-cover":
+        "oriental vaporwave banner, mauve (#9C6DB5) and cyan (#4FC6D9) gradient with grid horizon, plaster greek-column or abstract ancient stone sculpture silhouette, Latin + hanzi mix typography, Chinese vaporwave masthead",
+    },
+  },
+  {
+    key: "wc-liquid-chrome",
+    label: "液态金属",
+    supports: ["wechat-cover"],
+    descriptors: {
+      "wechat-cover":
+        "liquid chrome 3D blob banner, studio HDRI reflection, single metallic hero object centered, soft gradient backdrop (pearl gray → lavender), Octane render aesthetic, tiny restrained Chinese title",
+    },
+  },
+  {
+    key: "wc-watercolor-essay",
+    label: "水彩淡墨散文",
+    supports: ["wechat-cover"],
+    descriptors: {
+      "wechat-cover":
+        "loose watercolor wash with soft bleed edges, pale indigo (#6F8BAE) and sepia (#B08968) on cream paper, hand-brush Chinese lettering, literary essay banner, soft ink-wash editorial",
+    },
+  },
+  {
+    key: "wc-terminal",
+    label: "极客终端",
+    supports: ["wechat-cover"],
+    descriptors: {
+      "wechat-cover":
+        "dark charcoal terminal banner (#1C1F26 background), monospace code font, ASCII rule dividers, blinking cursor accent, phosphor green (#39FF14) highlights, developer-blog masthead",
+    },
+  },
+
+  // ─── wechat-illust-locked families ──────────────────────────────────────
+  {
+    key: "wi-naive-scribble",
+    label: "天真涂鸦",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "naive childlike scribble illustration, wobbly hand-drawn line, crayon and marker texture on cream paper (#F1EADA), imperfect proportion, loose editorial doodle, anti-AI handmade feel, no text",
+    },
+  },
+  {
+    key: "wi-blobby-gradient",
+    label: "Blobby 液态渐变",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "blobby gradient mesh illustration, bulbous organic shapes in pastel gradients (lilac → peach → mint), smooth gradient blur, dreamy floating forms, liquid abstract editorial, no text",
+    },
+  },
+  {
+    key: "wi-2d-3d-hybrid",
+    label: "2D+3D 混合",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "flat 2D vector characters interacting with Blender 3D props, hybrid-dimension illustration, soft ambient occlusion shadow on cream ground, Spline isometric feel, pastel palette, conceptual 2D-3D composite, no text",
+    },
+  },
+  {
+    key: "wi-psychedelic",
+    label: "迷幻极繁",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "1970s psychedelic maximalist illustration, hyper-saturated swirls (magenta + orange + violet), kaleidoscopic surreal composition, dreamlike dense imagery, acid poster editorial, no text",
+    },
+  },
+  {
+    key: "wi-linocut",
+    label: "木刻版画",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "linocut woodblock print illustration, bold carved black lines (#111111) on cream paper (#EEE6D0), gouge-mark texture, folk craft editorial, reductive print illustration, no text",
+    },
+  },
+  {
+    key: "wi-pixel-lofi",
+    label: "Lo-Fi 像素",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "lo-fi pixel art scene, 16-bit dithered gradient, atmospheric moody pixel scene in dusk purple + soft orange, chill editorial pixel illustration, retro game scene mood, no text",
+    },
+  },
+  {
+    key: "wi-papercut",
+    label: "剪纸民艺",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "layered paper-cut silhouettes, bold positive-negative shape play, earthy folk palette (vermilion + indigo + kraft), subtle drop shadow, Chinese papercut editorial illustration, no text",
+    },
+  },
+  {
+    key: "wi-surreal-metaphor",
+    label: "超现实单隐喻",
+    supports: ["wechat-illust"],
+    descriptors: {
+      "wechat-illust":
+        "conceptual surreal single metaphor (one impossible object), muted editorial palette (dusty blue + bone + rust), cinematic soft light, op-ed illustration, minimalist surrealism, no text",
+    },
+  },
+];
+
+/** Look up a family by key (global). */
+export function getStyleFamily(key: string): StyleFamily | undefined {
+  return STYLE_FAMILIES.find((f) => f.key === key);
+}
+
+/** Families that support a given image type (drives the /api/styles UI list). */
+export function getStyleFamiliesForType(type: ImageType): StyleFamily[] {
+  return STYLE_FAMILIES.filter((f) => f.supports.includes(type));
+}
+
+/**
+ * Resolve a family key + type to a flat StylePreset shape. Returns undefined
+ * if the family doesn't support the type, or the key is unknown. Kept as the
+ * primary lookup used by /api/generate because the image-prompt builder only
+ * needs {key, label, descriptor}.
+ */
+export function getStylePresetForType(key: string, type: ImageType): StylePreset | undefined {
+  const fam = getStyleFamily(key);
+  if (!fam) return undefined;
+  const descriptor = fam.descriptors[type];
+  if (!descriptor) return undefined;
+  return { key: fam.key, label: fam.label, descriptor };
+}
+
+/**
+ * Back-compat: resolve a key to *some* preset without knowing the type.
+ * Picks the first type the family supports. Kept so legacy /api/styles (no
+ * ?type filter) and any older tests keep working.
+ */
+export function getStylePreset(key: string): StylePreset | undefined {
+  const fam = getStyleFamily(key);
+  if (!fam) return undefined;
+  const firstType = fam.supports[0];
+  if (!firstType) return undefined;
+  const descriptor = fam.descriptors[firstType];
+  if (!descriptor) return undefined;
+  return { key: fam.key, label: fam.label, descriptor };
+}
+
+/** Back-compat: flat list of "one preset per family" for the legacy /api/styles. */
+export const STYLE_PRESETS: StylePreset[] = STYLE_FAMILIES.map((f) => {
+  const firstType = f.supports[0]!;
+  return { key: f.key, label: f.label, descriptor: f.descriptors[firstType]! };
+});
+
+/** Back-compat: group families by the types they support, returned as presets. */
+export const STYLE_PRESETS_BY_TYPE: Record<ImageType, StylePreset[]> = {
+  "xhs-cover": getStyleFamiliesForType("xhs-cover").map((f) => ({
+    key: f.key,
+    label: f.label,
+    descriptor: f.descriptors["xhs-cover"]!,
+  })),
+  "wechat-cover": getStyleFamiliesForType("wechat-cover").map((f) => ({
+    key: f.key,
+    label: f.label,
+    descriptor: f.descriptors["wechat-cover"]!,
+  })),
+  "wechat-illust": getStyleFamiliesForType("wechat-illust").map((f) => ({
+    key: f.key,
+    label: f.label,
+    descriptor: f.descriptors["wechat-illust"]!,
+  })),
+};
+
+/** Back-compat alias used by generate.ts. */
 export function getStylePresetsForType(type: ImageType): StylePreset[] {
   return STYLE_PRESETS_BY_TYPE[type];
 }
@@ -168,8 +569,17 @@ export interface SimplePromptInput {
   type: ImageType;
   /** From filename (without .md) or first H1. */
   articleTitle: string;
-  /** First ~600 chars of article body, used for thematic grounding. */
-  articleExcerpt: string;
+  /**
+   * @deprecated Retained for back-compat only. The raw article body used to
+   * be injected as "thematic context", but that caused two problems:
+   *   1. The first N chars of body are not a summary; they're boilerplate
+   *      + specific details (amounts, names, conflict vocabulary) that were
+   *      never meant to be drawn.
+   *   2. The safety classifier can't distinguish "do-not-render context"
+   *      from "main subject", so sensitive article text triggered refusals.
+   * The build no longer uses this field. Callers should omit it.
+   */
+  articleExcerpt?: string;
   stylePreset: StylePreset;
   /** Optional extra instructions from user. */
   extraPrompt?: string;
@@ -198,10 +608,21 @@ export function deriveArticleExcerpt(markdown: string, limit = 600): string {
   return body.slice(0, limit);
 }
 
+/**
+ * Short, AFFIRMATIVE framing only. Earlier versions of this string listed
+ * categories to avoid (real people / political figures / religious figures /
+ * military imagery / brand logos) — this backfired badly: Gemini's safety
+ * classifier does not parse negation; it pattern-matches the sensitive-topic
+ * vocabulary even when it's wrapped in "do not depict". The blacklist-style
+ * preamble was itself triggering refusals. Describe what we WANT only.
+ */
+const SAFETY_PREAMBLE =
+  "Keep the composition calm, tasteful, and professional. Suitable for a family-friendly editorial publication.";
+
 export function buildSimpleImagePrompt(input: SimplePromptInput): string {
-  const { type, articleTitle, articleExcerpt, stylePreset, extraPrompt } = input;
+  const { type, articleTitle, stylePreset, extraPrompt } = input;
   const aspect = ASPECT[type];
-  const lines: string[] = [];
+  const lines: string[] = [SAFETY_PREAMBLE];
 
   switch (type) {
     case "xhs-cover":
@@ -224,13 +645,21 @@ export function buildSimpleImagePrompt(input: SimplePromptInput): string {
       lines.push(
         `Create a WeChat Official Account inline ARTICLE ILLUSTRATION in LANDSCAPE 16:9 aspect ratio (${aspect.pixels} pixels, horizontal).`,
         "NO text, NO letters, NO Chinese characters in the image — pure visual illustration only.",
-        "Composition: a single clear visual metaphor representing the article's core theme, suitable to sit between paragraphs of body text.",
+        // Nudge toward low-risk subject types. Figurative humans drive most
+        // safety refusals; still life / landscape / pattern almost never do.
+        "Composition: prefer still-life objects, landscape, abstract geometry, or patterns over human figures. Single calm editorial visual, suitable to sit between paragraphs of body text.",
       );
       break;
   }
 
   lines.push(`Art style: ${stylePreset.descriptor}.`);
-  lines.push(`Article thematic context (for grounding — do NOT render any of this text into the image): ${articleExcerpt.slice(0, 600)}`);
+  // NOTE: We deliberately do NOT inject the raw article body here. Passing
+  // the article's first ~600 chars as "thematic context" caused widespread
+  // safety-classifier refusals on articles involving disputes, finance, or
+  // named parties — those words entered the prompt even though we asked
+  // the model not to render them. The user-controlled `extraPrompt` field
+  // below is now the only way to add thematic direction; the user applies
+  // their own judgment on what's safe to pass.
 
   if (extraPrompt && extraPrompt.trim()) {
     lines.push(`Additional user instructions: ${extraPrompt.trim()}`);

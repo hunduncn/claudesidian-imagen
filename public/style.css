@@ -3,7 +3,10 @@
 body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; margin: 0; background: #fafafa; color: #222; }
 .topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid #ddd; background: white; }
 .topbar h1 { margin: 0; font-size: 18px; }
-.main-grid { display: grid; grid-template-columns: 240px 1fr 380px; gap: 16px; padding: 16px; height: calc(100vh - 56px); overflow: hidden; }
+/* Layout: file tree stays narrow, center holds article preview + controls,
+   right column holds results. Results are the visual payload (especially
+   wechat wide banners at 1-col), so right is the largest. */
+.main-grid { display: grid; grid-template-columns: 220px minmax(360px, 1fr) 560px; gap: 16px; padding: 16px; height: calc(100vh - 56px); overflow: hidden; }
 .sidebar, .center, .variants { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 12px; overflow: auto; }
 .tree { font-size: 14px; }
 .tree-row { padding: 4px 6px; cursor: pointer; display: flex; gap: 6px; border-radius: 4px; }
@@ -17,10 +20,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif
 .extract-section, .fields-editor { margin: 16px 0; }
 .fields-editor label { display: block; margin: 8px 0; }
 .fields-editor input { width: 100%; padding: 6px; font-size: 13px; }
+
+/* Count picker: four pill buttons; the active one reads like the primary btn. */
+.count-picker { display: flex; gap: 6px; margin-top: 4px; }
+.count-picker button {
+  flex: 1; padding: 6px 0; font-size: 13px;
+  background: white; color: #222; border: 1px solid #ccc;
+  border-radius: 4px; cursor: pointer;
+}
+.count-picker button.active {
+  background: #007aff; color: white; border-color: #007aff;
+}
 button { padding: 8px 14px; font-size: 14px; cursor: pointer; border: 1px solid #007aff; background: #007aff; color: white; border-radius: 4px; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 .grid-2x2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Results grid is now driven by x-bind:style — 2-col for xhs (3:4 portraits),
+   1-col for wechat types (2.35:1 / 16:9 wide banners read better stacked). */
+.results-grid { display: grid; gap: 8px; }
 /* aspect-ratio is now set inline per type (xhs 3/4, wechat-cover 2.35/1, wechat-illust 16/9). */
+/* Give the "采纳并保存" button breathing room under the variant grid —
+   without this, the button sits flush against the last image and looks
+   cramped, especially at 1-col wechat where the banner reaches the button. */
+.results-grid + button { margin-top: 16px; }
 .variant { aspect-ratio: 3/4; border: 2px solid transparent; border-radius: 4px; overflow: hidden; cursor: pointer; background: #222; display: flex; align-items: center; justify-content: center; }
 .variant img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
 .variant.selected { border-color: #007aff; }
@@ -34,3 +55,51 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .settings-actions { display: flex; gap: 8px; margin-top: 16px; }
 .error-toast { position: fixed; top: 16px; right: 16px; z-index: 200; background: #b00020; color: white; padding: 12px 16px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 12px; max-width: 420px; cursor: pointer; }
 .toast-close { background: transparent; border: none; color: white; font-size: 20px; line-height: 1; padding: 0 4px; cursor: pointer; }
+
+/* ─── variant toolbar (zoom + anchor buttons) ───────────────────────── */
+.variant { position: relative; }
+.variant-toolbar {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  display: flex; gap: 4px;
+  opacity: 0; transition: opacity 0.15s;
+}
+.variant:hover .variant-toolbar { opacity: 1; }
+.variant-btn {
+  padding: 4px 8px; font-size: 11px;
+  background: rgba(0, 0, 0, 0.65); color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px; cursor: pointer; line-height: 1;
+}
+.variant-btn:hover { background: rgba(0, 122, 255, 0.9); }
+.zoom-btn { font-size: 13px; padding: 4px 6px; }
+.anchor-badge {
+  display: inline-block; margin-left: 6px;
+  padding: 1px 6px; font-size: 11px;
+  background: #e6f0ff; color: #1a4d8f; border-radius: 3px;
+  font-weight: normal;
+}
+
+/* ─── zoom lightbox ─────────────────────────────────────────────────── */
+.zoom-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px; cursor: zoom-out;
+}
+.zoom-image {
+  max-width: 100%; max-height: 100%;
+  width: auto; height: auto;
+  object-fit: contain;
+  cursor: default;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+.zoom-close {
+  position: absolute; top: 16px; right: 20px;
+  width: 40px; height: 40px;
+  font-size: 28px; line-height: 1;
+  background: rgba(255, 255, 255, 0.1); color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.zoom-close:hover { background: rgba(255, 255, 255, 0.2); }
