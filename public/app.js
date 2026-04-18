@@ -48,6 +48,19 @@ window.appState = function appState() {
     errorToast: "",
     _errorTimer: null,
 
+    // flat visible tree for arbitrary-depth rendering
+    get flatVisible() {
+      const out = [];
+      const walk = (nodes, depth) => {
+        for (const n of nodes) {
+          out.push({ node: n, depth });
+          if (n.isDir && n.expanded && n.children) walk(n.children, depth + 1);
+        }
+      };
+      walk(this.tree, 0);
+      return out;
+    },
+
     showError(msg) {
       this.errorToast = msg;
       if (this._errorTimer) clearTimeout(this._errorTimer);

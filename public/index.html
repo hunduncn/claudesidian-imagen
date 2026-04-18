@@ -42,24 +42,19 @@
     </header>
 
     <main class="main-grid" x-show="configReady">
-      <!-- Sidebar: vault tree -->
+      <!-- Sidebar: vault tree (flattened recursive render) -->
       <aside class="sidebar">
         <h3>Vault 文件</h3>
         <div class="tree">
-          <template x-for="node in tree" :key="node.relPath">
-            <div>
-              <div class="tree-row" @click="toggleNode(node)" :class="{ selected: selectedPath === node.relPath }">
-                <span x-text="node.isDir ? (node.expanded ? '▼' : '▶') : '📄'"></span>
-                <span x-text="node.name"></span>
-              </div>
-              <div x-show="node.isDir && node.expanded" style="padding-left: 16px;">
-                <template x-for="child in (node.children || [])" :key="child.relPath">
-                  <div class="tree-row" @click="onNodeClick(child)" :class="{ selected: selectedPath === child.relPath }">
-                    <span x-text="child.isDir ? (child.expanded ? '▼' : '▶') : '📄'"></span>
-                    <span x-text="child.name"></span>
-                  </div>
-                </template>
-              </div>
+          <template x-for="entry in flatVisible" :key="entry.node.relPath">
+            <div
+              class="tree-row"
+              :style="`padding-left: ${entry.depth * 14 + 6}px`"
+              :class="{ selected: selectedPath === entry.node.relPath }"
+              @click="onNodeClick(entry.node)"
+            >
+              <span x-text="entry.node.isDir ? (entry.node.expanded ? '▼' : '▶') : '📄'"></span>
+              <span x-text="entry.node.name"></span>
             </div>
           </template>
         </div>
