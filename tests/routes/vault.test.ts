@@ -53,6 +53,8 @@ describe("/api/vault routes", () => {
     const req = new Request("http://x/api/vault/read?path=01_Projects");
     const resp = await handleVaultRoutes(req, makeCtx(vault));
     expect(resp.status).toBe(400);
+    const json = await resp.json();
+    expect(json.error).toBe("Not a markdown file");
   });
 
   test("GET /api/vault/tree returns 400 for path escape", async () => {
@@ -60,7 +62,7 @@ describe("/api/vault routes", () => {
     const resp = await handleVaultRoutes(req, makeCtx(vault));
     expect(resp.status).toBe(400);
     const json = await resp.json();
-    expect(typeof json.error).toBe("string");
+    expect(json.error).toBe("Path is outside vault");
   });
 
   test("GET /api/vault/read returns 400 for empty path", async () => {
@@ -68,7 +70,7 @@ describe("/api/vault routes", () => {
     const resp = await handleVaultRoutes(req, makeCtx(vault));
     expect(resp.status).toBe(400);
     const json = await resp.json();
-    expect(typeof json.error).toBe("string");
+    expect(json.error).toBe("Not a markdown file");
   });
 
   test("GET /api/vault/read returns 400 for path escape", async () => {
@@ -76,6 +78,12 @@ describe("/api/vault routes", () => {
     const resp = await handleVaultRoutes(req, makeCtx(vault));
     expect(resp.status).toBe(400);
     const json = await resp.json();
-    expect(typeof json.error).toBe("string");
+    expect(json.error).toBe("Path is outside vault");
+  });
+
+  test("returns 404 for unknown /api/vault/* route", async () => {
+    const req = new Request("http://localhost/api/vault/nonsense");
+    const resp = await handleVaultRoutes(req, makeCtx(vault));
+    expect(resp.status).toBe(404);
   });
 });

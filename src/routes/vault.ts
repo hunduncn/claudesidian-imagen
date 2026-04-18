@@ -1,6 +1,7 @@
 // src/routes/vault.ts
 import type { ServerContext } from "../server.ts";
 import { listDir, readMarkdown } from "../adapters/fs-vault.ts";
+import { sanitizeErrorMessage } from "./_errors.ts";
 
 export async function handleVaultRoutes(req: Request, ctx: ServerContext): Promise<Response> {
   const url = new URL(req.url);
@@ -12,7 +13,7 @@ export async function handleVaultRoutes(req: Request, ctx: ServerContext): Promi
       const entries = listDir(ctx.vaultRoot, dir);
       return Response.json({ entries });
     } catch (e) {
-      return Response.json({ error: (e as Error).message }, { status: 400 });
+      return Response.json({ error: sanitizeErrorMessage(e, "vault/tree") }, { status: 400 });
     }
   }
 
@@ -22,7 +23,7 @@ export async function handleVaultRoutes(req: Request, ctx: ServerContext): Promi
       const content = readMarkdown(ctx.vaultRoot, filePath);
       return Response.json({ content });
     } catch (e) {
-      return Response.json({ error: (e as Error).message }, { status: 400 });
+      return Response.json({ error: sanitizeErrorMessage(e, "vault/read") }, { status: 400 });
     }
   }
 
