@@ -5,7 +5,7 @@ import { handleVaultRoutes } from "./routes/vault.ts";
 import { handleExtractRoute } from "./routes/extract.ts";
 import { handleGenerateRoute } from "./routes/generate.ts";
 import { handleSaveRoute } from "./routes/save.ts";
-import { STYLE_PRESETS } from "./core/prompt-templates.ts";
+import { STYLE_PRESETS, STYLE_PRESETS_BY_TYPE, type ImageType } from "./core/prompt-templates.ts";
 import { isAbsolute, join, relative } from "node:path";
 import { existsSync } from "node:fs";
 
@@ -70,8 +70,11 @@ async function handleApi(req: Request, ctx: ServerContext): Promise<Response | n
   }
   if (path === "/api/styles" && req.method === "GET") {
     // Expose preset styles to the UI (label only, no internal descriptor).
+    // Optional ?type=xhs-cover|wechat-cover|wechat-illust filters to one type.
+    const t = url.searchParams.get("type") as ImageType | null;
+    const list = t && STYLE_PRESETS_BY_TYPE[t] ? STYLE_PRESETS_BY_TYPE[t] : STYLE_PRESETS;
     return Response.json({
-      styles: STYLE_PRESETS.map((s) => ({ key: s.key, label: s.label })),
+      styles: list.map((s) => ({ key: s.key, label: s.label })),
     });
   }
   if (path.startsWith("/api/vault/")) return handleVaultRoutes(req, ctx);

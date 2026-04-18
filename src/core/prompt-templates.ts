@@ -99,23 +99,69 @@ export interface StylePreset {
   descriptor: string;
 }
 
-export const STYLE_PRESETS: StylePreset[] = [
-  { key: "xhs-vibrant",       label: "小红书撞色",  descriptor: "Xiaohongshu trending cover style, vibrant contrasting colors, bold large Chinese typography, lifestyle vibe, eye-catching" },
-  { key: "flat-illustration", label: "扁平插画",    descriptor: "flat vector illustration, clean geometric shapes, bold flat colors, minimal shading, modern editorial feel" },
-  { key: "morandi",           label: "莫兰迪色系",  descriptor: "Morandi muted color palette, soft dusty tones (sage, dusty pink, warm gray), elegant restrained atmosphere" },
-  { key: "watercolor",        label: "手绘水彩",    descriptor: "hand-painted watercolor, soft wet brush strokes, translucent pigment bleeds, paper grain texture" },
-  { key: "japanese-fresh",    label: "日系小清新",  descriptor: "Japanese soft fresh style, pastel sakura palette, gentle atmosphere, delicate details, light and airy" },
-  { key: "3d-cartoon",        label: "3D 卡通渲染", descriptor: "3D cartoon render, Pixar-style soft lighting, rounded volumes, subtle ambient occlusion, plastic/clay materials" },
-  { key: "cyberpunk",         label: "赛博朋克",    descriptor: "cyberpunk aesthetic, neon pink and cyan rim lighting, dark moody urban atmosphere, futuristic Asian city" },
-  { key: "minimal-line",      label: "极简线条",    descriptor: "minimal line-art, single-color thin strokes on clean background, lots of white space, geometric simplicity" },
-  { key: "chinese-ink",       label: "国风水墨",    descriptor: "traditional Chinese ink wash painting, flowing black ink on rice paper, misty mountains, calligraphic strokes" },
-  { key: "retro-film",        label: "复古胶片",    descriptor: "retro 70s/80s film photography, warm grain, faded color grade, nostalgic mood, light leaks" },
-  { key: "futuristic-tech",   label: "未来科技",    descriptor: "futuristic high-tech style, holographic UI elements, blue/white cool palette, sci-fi clean lines" },
-  { key: "business-clean",    label: "商务简洁",    descriptor: "corporate clean design, minimal geometric composition, navy/gray palette, professional editorial tone" },
-];
+/**
+ * Per-type preset library. Each type gets its own set of trending styles
+ * curated for that platform's visual conventions. Keys are globally unique
+ * across types so `getStylePreset(key)` can resolve without knowing the type.
+ */
+export const STYLE_PRESETS_BY_TYPE: Record<ImageType, StylePreset[]> = {
+  "xhs-cover": [
+    { key: "xhs-dopamine",       label: "多巴胺撞色",      descriptor: "dopamine color clash, saturated candy palette (hot pink + lime + electric blue), chunky bold sans-serif Chinese title, solid color blocks framing a cutout subject, high-energy Gen-Z pop poster" },
+    { key: "xhs-maillard",       label: "美拉德焦糖",      descriptor: "Maillard brown palette, caramel coffee cream tones, moody autumn warm film grain, quiet luxury mood, espresso beige editorial" },
+    { key: "xhs-y2k",            label: "Y2K 千禧辣妹",    descriptor: "Y2K chrome bubble typography, frosted glass sparkle, silver blue gradient, butterfly and star stickers, 2000s web aesthetic" },
+    { key: "xhs-film-ambient",   label: "氛围感胶片",      descriptor: "35mm film grain lifestyle photo, hazy window light, centered Chinese title inside translucent soft-blur bar, effortless mood, Kodak Portra tones" },
+    { key: "xhs-magazine-collage", label: "杂志拼贴",       descriptor: "magazine collage cutout, torn paper tape scribble, product knockout arrangement, scrapbook hand-annotated, zine layout" },
+    { key: "xhs-new-chinese",    label: "新中式水墨",      descriptor: "new Chinese ink wash background, vermilion seal stamp, contemporary subject with classical brushstroke, rice paper texture, oriental minimalism" },
+    { key: "xhs-sporty-barbie",  label: "运动芭比",        descriptor: "sporty Barbie hot pink, rhinestone sparkle and athletic tape stripes, glossy crop top flatlay, pink and gray color block, Gen-Z sportswear" },
+    { key: "xhs-porcelain",      label: "清冷白瓷 (淡人)",  descriptor: "cool porcelain white minimalism, pale blue negative space, hairline serif Chinese title, single floating object, muted quiet aesthetic" },
+    { key: "xhs-handwritten",    label: "手写便签",        descriptor: "handwritten marker notebook, kraft paper or cream background, highlighter swipes with doodled arrows, study notes sticker, bullet journal cover" },
+    { key: "xhs-xpiritual",      label: "玄学赛博拼贴",    descriptor: "mystical tarot collage, halftone glitch occult, neon laser zodiac, post-internet spiritual, xpiritualism aesthetic" },
+    { key: "xhs-oil-portrait",   label: "厚涂油画人像",    descriptor: "impasto oil painting portrait, visible brushstroke texture, Renaissance chiaroscuro lighting, painterly editorial cover, thick paint portrait with modern Chinese title overlay" },
+    { key: "xhs-raw-snapshot",   label: "原相机生图",      descriptor: "raw iPhone flash snapshot, overexposed candid, unfiltered anti-aesthetic, real life crop, casual phone photo cover with one-line title" },
+  ],
+  "wechat-cover": [
+    { key: "wc-hk-cinema",       label: "港风电影海报",    descriptor: "1980s Hong Kong cinema poster, neon sign tungsten halo, Wong Kar-wai film grain, vertical Chinese movie type on the side, retro Cantopop banner" },
+    { key: "wc-chinese-landscape", label: "新中式山水",     descriptor: "minimalist Chinese landscape ink wash stretched across panoramic banner, wide gongbi line art, vast negative space reserved for restrained serif title, new Chinese editorial banner" },
+    { key: "wc-swiss",           label: "瑞士极简排版",    descriptor: "Swiss International Typographic Style, grid layout, modern Chinese grotesque sans (思源黑体 style), single accent color bar, strict hierarchy, minimal typographic banner" },
+    { key: "wc-memphis",         label: "孟菲斯撞色",      descriptor: "Memphis design geometric, squiggles and confetti dots, postmodern 80s pastel and primary colors, playful geometric banner, Memphis Milano style" },
+    { key: "wc-risograph",       label: "Risograph 双色",  descriptor: "risograph two-color print, halftone misregistration, fluorescent pink and navy (or yellow and blue) overlay, paper fiber grain, riso zine banner" },
+    { key: "wc-cinematic-photo", label: "胶片人文摄影",    descriptor: "cinematic 2.35 letterbox photograph, teal-orange film grade, documentary wide portrait, tiny corner typography, film photo essay banner" },
+    { key: "wc-newsprint",       label: "复古报刊版式",    descriptor: "vintage newspaper masthead, yellowed newsprint texture, large serif 宋体 Chinese headline, column rule, ink-stamp date, broadsheet editorial layout" },
+    { key: "wc-vaporwave-east",  label: "东方蒸汽波",      descriptor: "oriental vaporwave, mauve and cyan gradient with grid horizon, terracotta warrior or Buddha bust, Latin plus hanzi mix, Chinese vaporwave banner" },
+    { key: "wc-maximalist",      label: "极繁主义拼贴",    descriptor: "maximalist editorial collage, layered halftone faces, torn paper stamped slogans, dense mixed media banner, anti-minimal magazine spread" },
+    { key: "wc-liquid-chrome",   label: "液态金属",        descriptor: "liquid chrome 3D blob, studio HDRI reflection, single metallic hero object, soft gradient backdrop, Octane render banner" },
+    { key: "wc-watercolor-essay", label: "水彩淡墨散文",   descriptor: "loose watercolor wash with soft bleed edges, pale indigo and sepia, hand-brush Chinese lettering, literary essay banner, soft ink wash editorial" },
+    { key: "wc-terminal",        label: "极客终端",        descriptor: "dark charcoal terminal aesthetic, monospace code font, ASCII rules, blinking cursor accent, phosphor green highlights, developer blog banner" },
+  ],
+  "wechat-illust": [
+    { key: "wi-naive-scribble",  label: "天真涂鸦",        descriptor: "naive childlike scribble illustration, wobbly hand-drawn line, crayon and marker texture, imperfect proportion, loose editorial doodle, anti-AI handmade feel" },
+    { key: "wi-risograph",       label: "Risograph 印刷",  descriptor: "risograph editorial illustration, two-color halftone, misregistered ink overlay, rough paper texture, print zine illustration" },
+    { key: "wi-mixed-collage",   label: "混合媒介拼贴",    descriptor: "mixed media editorial collage, photo cutouts with painted shapes, scanned textures and typography fragments, layered surreal composition, magazine collage illustration" },
+    { key: "wi-painterly",       label: "厚涂油画编辑",    descriptor: "painterly editorial illustration, thick oil brushstroke, cinematic lighting on a single symbolic figure, New Yorker cover style, conceptual painted metaphor" },
+    { key: "wi-blobby-gradient", label: "Blobby 液态渐变",  descriptor: "blobby gradient mesh illustration, bulbous organic shapes, smooth gradient blur, dreamy floating forms, liquid abstract editorial" },
+    { key: "wi-2d-3d-hybrid",    label: "2D+3D 混合",      descriptor: "flat 2D vector characters interacting with Blender 3D props, hybrid-dimension illustration, soft ambient occlusion shadow, Spline isometric feel, conceptual 2D-3D composite" },
+    { key: "wi-psychedelic",     label: "迷幻极繁",        descriptor: "1970s psychedelic maximalist, hyper-saturated swirls, kaleidoscopic surreal composition, dreamlike dense illustration, acid poster editorial" },
+    { key: "wi-linocut",         label: "木刻版画",        descriptor: "linocut woodblock print illustration, bold carved black lines, gouge mark texture, folk craft editorial, reductive print illustration" },
+    { key: "wi-gongbi-modern",   label: "新工笔叙事",      descriptor: "gongbi fine-line painting applied to modern scene, mineral pigment greens and vermilions, contemporary Chinese brush illustration, traditional-meets-modern oriental narrative" },
+    { key: "wi-pixel-lofi",      label: "Lo-Fi 像素",      descriptor: "lo-fi pixel art scene, 16-bit dithered gradient, atmospheric moody pixel, chill editorial pixel illustration, retro game scene mood" },
+    { key: "wi-papercut",        label: "剪纸民艺",        descriptor: "layered paper-cut silhouettes, bold positive-negative shape play, earthy folk palette, subtle drop shadow, Chinese papercut editorial" },
+    { key: "wi-surreal-metaphor", label: "超现实单隐喻",   descriptor: "conceptual surreal single metaphor (one impossible object), muted editorial palette, cinematic soft light, op-ed illustration, minimalist surrealism" },
+  ],
+};
+
+/** Flat list of all presets across all types. Consumed by the legacy /api/styles (no ?type filter). */
+export const STYLE_PRESETS: StylePreset[] = ([] as StylePreset[]).concat(
+  STYLE_PRESETS_BY_TYPE["xhs-cover"],
+  STYLE_PRESETS_BY_TYPE["wechat-cover"],
+  STYLE_PRESETS_BY_TYPE["wechat-illust"],
+);
 
 export function getStylePreset(key: string): StylePreset | undefined {
   return STYLE_PRESETS.find((s) => s.key === key);
+}
+
+export function getStylePresetsForType(type: ImageType): StylePreset[] {
+  return STYLE_PRESETS_BY_TYPE[type];
 }
 
 export interface SimplePromptInput {

@@ -120,5 +120,6 @@ test("502 with sanitized error on upstream 500", async () => {
   const resp = await handleExtractRoute(req, makeCtx());
   expect(resp.status).toBe(502);
   const json = await resp.json();
-  expect(json.error).toBe("Internal error");
+  // Sanitizer categorizes upstream 5xx as a Chinese "上游平台错误 (500)" message.
+  expect(json.error).toMatch(/上游平台错误.*500/);
 });

@@ -49,6 +49,16 @@ window.appState = function appState() {
     errorToast: "",
     _errorTimer: null,
 
+    // aspect-ratio string for variant preview, driven by current type
+    get variantAspect() {
+      switch (this.type) {
+        case "xhs-cover":     return "3 / 4";
+        case "wechat-cover":  return "2.35 / 1";
+        case "wechat-illust": return "16 / 9";
+        default:              return "1 / 1";
+      }
+    },
+
     // flat visible tree for arbitrary-depth rendering
     get flatVisible() {
       const out = [];
@@ -77,18 +87,16 @@ window.appState = function appState() {
       await this.refreshConfig();
       if (this.configReady) {
         await this.loadTree();
-        await this.loadStyles();
       } else {
         this.showSettings = true;
       }
     },
 
-    async loadStyles() {
-      const r = await fetch("/api/styles").then((r) => r.json());
+    async loadStylesForType(type) {
+      const r = await fetch(`/api/styles?type=${encodeURIComponent(type)}`).then((r) => r.json());
       this.stylePresets = r.styles || [];
-      if (this.stylePresets.length > 0 && !this.styleKey) {
-        this.styleKey = this.stylePresets[0].key;
-      }
+      // Reset to first preset of this type — keys are type-prefixed so cross-type keys never match.
+      this.styleKey = this.stylePresets.length > 0 ? this.stylePresets[0].key : "";
     },
 
     // ───── config ─────
@@ -130,7 +138,6 @@ window.appState = function appState() {
       if (this.configReady) {
         this.showSettings = false;
         await this.loadTree();
-        await this.loadStyles();
       }
     },
 
@@ -173,10 +180,11 @@ window.appState = function appState() {
 
     // ───── extract / generate / save ─────
 
-    selectType(t) {
+    async selectType(t) {
       this.type = t;
       this.results = [];
       this.selectedIndex = null;
+      await this.loadStylesForType(t);
     },
 
     _generateBody(count) {

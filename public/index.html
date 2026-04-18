@@ -107,7 +107,12 @@
         <h3>选一张采纳</h3>
         <div class="grid-2x2">
           <template x-for="(r, i) in results" :key="i">
-            <div class="variant" :class="{ selected: selectedIndex === i, error: r.kind === 'error' || r.kind === 'none' }" @click="selectVariant(i)">
+            <div
+              class="variant"
+              :style="`aspect-ratio: ${variantAspect};`"
+              :class="{ selected: selectedIndex === i, error: r.kind === 'error' || r.kind === 'none' }"
+              @click="selectVariant(i)"
+            >
               <template x-if="r.kind === 'url'">
                 <img :src="r.url" />
               </template>
