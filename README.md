@@ -75,7 +75,7 @@ bunx github:hunduncn/claudesidian-imagen
 
 ## ⚡ Claudesidian / Claude Code 斜杠命令
 
-如果你是 [Claudesidian](https://github.com/obra/superpowers) / Claude Code 用户，装个 **`/imagen` skill**，之后在会话里一句 `/imagen` 就能启动（已在跑就直接报 URL，没在跑就后台启动）。
+如果你是 [Claudesidian](https://github.com/obra/superpowers) / Claude Code 用户，装个 **`/imagen` skill**，之后在会话里一句话就能启停运维。
 
 **安装**（vault 根目录执行）：
 
@@ -93,7 +93,16 @@ curl -fsSL https://raw.githubusercontent.com/hunduncn/claudesidian-imagen/main/s
   -o ~/.claude/skills/imagen/SKILL.md
 ```
 
-重开一个会话即可用 `/imagen` 调用。
+重开会话即可用。支持的子命令（自然语言匹配，不用死记）：
+
+| 说法 | 行为 |
+|---|---|
+| `/imagen` · `/imagen 启动` · `/imagen start` | 检查端口，没在跑就后台启动；已在跑直接报 URL |
+| `/imagen 停` · `/imagen stop` | kill 5173 上的进程（只杀 imagen，不误伤其他 Bun） |
+| `/imagen 状态` · `/imagen status` | 报告 PID / 运行时长 / 内存占用 |
+| `/imagen 日志` · `/imagen logs` | 看最近 50 行启动日志 |
+| `/imagen 更新` · `/imagen update` | 清 bunx 缓存，下次启动拉最新代码 |
+| `/imagen 重启` · `/imagen restart` | 停 → 启 |
 
 ---
 
