@@ -1,5 +1,5 @@
 // tests/routes/generate.test.ts
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 import { handleGenerateRoute } from "../../src/routes/generate.ts";
 import type { ServerContext } from "../../src/server.ts";
 
@@ -21,6 +21,12 @@ function makeCtx(overrideConfig?: unknown): ServerContext {
     setConfig: () => {},
   } as ServerContext;
 }
+
+// ─── fetch isolation ─────────────────────────────────────────────────────────
+
+let originalFetch: typeof globalThis.fetch;
+beforeEach(() => { originalFetch = globalThis.fetch; });
+afterEach(() => { globalThis.fetch = originalFetch; });
 
 // ─── method guard ────────────────────────────────────────────────────────────
 
@@ -74,6 +80,20 @@ test("400 on invalid JSON body", async () => {
   expect(json.error).toBe("Invalid JSON body");
 });
 
+// ─── missing type or fields ───────────────────────────────────────────────────
+
+test("400 on missing type or fields", async () => {
+  const req = new Request("http://x/api/generate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ count: 2 }),
+  });
+  const resp = await handleGenerateRoute(req, makeCtx());
+  expect(resp.status).toBe(400);
+  const json = await resp.json();
+  expect(json.error).toBe("missing type or fields");
+});
+
 // ─── successful 4-variant generation ─────────────────────────────────────────
 
 test("returns 4 image results when all calls succeed", async () => {
@@ -103,6 +123,8 @@ test("returns 4 image results when all calls succeed", async () => {
   const json = await resp.json();
   expect(json.results).toHaveLength(4);
   expect(json.results.every((r: any) => r.kind === "url")).toBe(true);
+  const urls = new Set(json.results.map((r: any) => r.url));
+  expect(urls.size).toBe(4);
 });
 
 // ─── count clamping ───────────────────────────────────────────────────────────
@@ -133,7 +155,7 @@ test("clamps count > 4 to 4", async () => {
   expect(json.results).toHaveLength(4);
 });
 
-test("defaults count to 4 when count is 0", async () => {
+test("clamps count=0 up to 1", async () => {
   globalThis.fetch = mock(async () =>
     new Response(
       JSON.stringify({
@@ -238,4 +260,34 @@ test("error messages are sanitized (ENOENT → 'File or directory not found')", 
   expect(json.results).toHaveLength(1);
   expect(json.results[0].kind).toBe("error");
   expect(json.results[0].message).toBe("File or directory not found");
+});
+
+// ─── no image in LLM response ─────────────────────────────────────────────────
+
+test("all results have kind:'error' when LLM returns no image", async () => {
+  globalThis.fetch = mock(async () =>
+    new Response(
+      JSON.stringify({
+        choices: [{ message: { content: "sorry, I cannot generate images" } }],
+      }),
+      { status: 200 },
+    ),
+  ) as any;
+
+  const req = new Request("http://x/api/generate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      type: "xhs-cover",
+      fields: { title: "t", visual: "v", style: "s" },
+      count: 2,
+    }),
+  });
+
+  const resp = await handleGenerateRoute(req, makeCtx());
+  expect(resp.status).toBe(200);
+  const json = await resp.json();
+  expect(json.results).toHaveLength(2);
+  expect(json.results.every((r: any) => r.kind === "error")).toBe(true);
+  expect(json.results.every((r: any) => r.message === "No image in response")).toBe(true);
 });

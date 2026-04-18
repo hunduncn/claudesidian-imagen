@@ -31,6 +31,10 @@ export async function handleGenerateRoute(req: Request, ctx: ServerContext): Pro
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  if (!body.type || !body.fields) {
+    return Response.json({ error: "missing type or fields" }, { status: 400 });
+  }
+
   const count = Math.min(Math.max(body.count ?? 4, 1), 4);
   const prompt = buildImagePrompt(body.type, body.fields);
   const client = { baseUrl: cfg!.api.baseUrl, apiKey: cfg!.api.apiKey };
@@ -40,7 +44,11 @@ export async function handleGenerateRoute(req: Request, ctx: ServerContext): Pro
     Array.from({ length: count }, async (): Promise<GenerateResult> => {
       try {
         const content = await imageCompletion(client, { model, prompt });
-        return parseImageFromContent(content);
+        const parsed = parseImageFromContent(content);
+        if (parsed.kind === "none") {
+          return { kind: "error", message: "No image in response" };
+        }
+        return parsed;
       } catch (e) {
         return { kind: "error", message: sanitizeErrorMessage(e, "generate") };
       }
