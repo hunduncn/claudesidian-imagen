@@ -1,0 +1,27 @@
+{
+  "name": "@claudesidian/imagen",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local web tool to turn Claudesidian vault .md articles into 小红书/公众号 covers and illustrations",
+  "bin": {
+    "claudesidian-imagen": "./bin/claudesidian-imagen.ts"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "bun run src/server.ts",
+    "test": "bun test",
+    "start": "bun run bin/claudesidian-imagen.ts"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "bun-types": "^1.3.12"
+  }
+}
