@@ -5,7 +5,7 @@ export type ParsedImage =
   | { kind: "none"; raw: string };
 
 const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/;
-const BARE_URL_RE = /(https?:\/\/[^\s]+\.(?:png|jpe?g|webp|gif))/i;
+const BARE_URL_RE = /(https?:\/\/[^\s]+\.(?:png|jpe?g|webp|gif|avif)(?:\?[^\s]*)?)/i;
 const DATA_URL_RE = /data:(image\/[a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=]+)/;
 
 /**

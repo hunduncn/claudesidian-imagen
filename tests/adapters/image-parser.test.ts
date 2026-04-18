@@ -14,16 +14,22 @@ describe("parseImageFromContent", () => {
     expect(result).toEqual({ kind: "url", url: "https://cdn.example.com/x.jpg" });
   });
 
+  test("parses a bare URL with query string (CDN-signed)", () => {
+    const url = "https://cdn.example.com/abc.png?w=800&sig=xyz";
+    const result = parseImageFromContent(url);
+    expect(result).toEqual({ kind: "url", url });
+  });
+
   test("parses a data URL (base64)", () => {
     const dataUrl =
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAen63NgAAAAASUVORK5CYII=";
     const content = `\`\`\`\n${dataUrl}\n\`\`\``;
     const result = parseImageFromContent(content);
-    expect(result.kind).toBe("base64");
-    if (result.kind === "base64") {
-      expect(result.mimeType).toBe("image/png");
-      expect(result.base64.startsWith("iVBOR")).toBe(true);
+    if (result.kind !== "base64") {
+      throw new Error(`expected kind=base64, got ${result.kind}`);
     }
+    expect(result.mimeType).toBe("image/png");
+    expect(result.base64.startsWith("iVBOR")).toBe(true);
   });
 
   test("returns kind=none with raw content when no image found", () => {
