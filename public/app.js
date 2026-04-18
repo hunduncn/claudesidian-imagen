@@ -34,10 +34,11 @@ window.appState = function appState() {
     selectedFile: null,
     articleContent: "",
 
-    // generation flow
+    // generation flow (simplified — no more LLM extract step)
     type: null,
-    fields: null,
-    extracting: false,
+    stylePresets: [],
+    styleKey: "",
+    extraPrompt: "",
     generating: false,
     results: [],
     selectedIndex: null,
@@ -76,8 +77,17 @@ window.appState = function appState() {
       await this.refreshConfig();
       if (this.configReady) {
         await this.loadTree();
+        await this.loadStyles();
       } else {
         this.showSettings = true;
+      }
+    },
+
+    async loadStyles() {
+      const r = await fetch("/api/styles").then((r) => r.json());
+      this.stylePresets = r.styles || [];
+      if (this.stylePresets.length > 0 && !this.styleKey) {
+        this.styleKey = this.stylePresets[0].key;
       }
     },
 
@@ -120,6 +130,7 @@ window.appState = function appState() {
       if (this.configReady) {
         this.showSettings = false;
         await this.loadTree();
+        await this.loadStyles();
       }
     },
 
@@ -153,7 +164,6 @@ window.appState = function appState() {
       this.selectedFile = node;
       // reset downstream state
       this.type = null;
-      this.fields = null;
       this.results = [];
       this.selectedIndex = null;
       this.lastWikilink = "";
@@ -165,32 +175,22 @@ window.appState = function appState() {
 
     selectType(t) {
       this.type = t;
-      this.fields = null;
       this.results = [];
       this.selectedIndex = null;
     },
 
-    async doExtract() {
-      if (!this.type || !this.articleContent) return;
-      this.extracting = true;
-      try {
-        const r = await fetch("/api/extract", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ content: this.articleContent, type: this.type }),
-        }).then((r) => r.json());
-        if (r.error) {
-          this.showError("提取失败：" + r.error);
-          return;
-        }
-        this.fields = r.fields;
-      } finally {
-        this.extracting = false;
-      }
+    _generateBody(count) {
+      return {
+        type: this.type,
+        styleKey: this.styleKey,
+        sourcePath: this.selectedPath,
+        extraPrompt: this.extraPrompt,
+        count,
+      };
     },
 
     async doGenerate() {
-      if (!this.fields || !this.type) return;
+      if (!this.type || !this.styleKey || !this.selectedPath) return;
       this.generating = true;
       this.results = [];
       this.selectedIndex = null;
@@ -198,8 +198,12 @@ window.appState = function appState() {
         const r = await fetch("/api/generate", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ type: this.type, fields: this.fields, count: 4 }),
+          body: JSON.stringify(this._generateBody(4)),
         }).then((r) => r.json());
+        if (r.error) {
+          this.showError("生成失败：" + r.error);
+          return;
+        }
         this.results = r.results || [];
       } finally {
         this.generating = false;
@@ -211,7 +215,7 @@ window.appState = function appState() {
       const r = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type: this.type, fields: this.fields, count: 1 }),
+        body: JSON.stringify(this._generateBody(1)),
       }).then((r) => r.json());
       const newResults = [...this.results];
       newResults[i] = (r.results && r.results[0]) || { kind: "error", message: "重试失败" };

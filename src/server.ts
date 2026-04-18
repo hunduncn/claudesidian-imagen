@@ -5,6 +5,7 @@ import { handleVaultRoutes } from "./routes/vault.ts";
 import { handleExtractRoute } from "./routes/extract.ts";
 import { handleGenerateRoute } from "./routes/generate.ts";
 import { handleSaveRoute } from "./routes/save.ts";
+import { STYLE_PRESETS } from "./core/prompt-templates.ts";
 import { isAbsolute, join, relative } from "node:path";
 import { existsSync } from "node:fs";
 
@@ -66,6 +67,12 @@ async function handleApi(req: Request, ctx: ServerContext): Promise<Response | n
     }
     ctx.setConfig(body);
     return Response.json({ ok: true });
+  }
+  if (path === "/api/styles" && req.method === "GET") {
+    // Expose preset styles to the UI (label only, no internal descriptor).
+    return Response.json({
+      styles: STYLE_PRESETS.map((s) => ({ key: s.key, label: s.label })),
+    });
   }
   if (path.startsWith("/api/vault/")) return handleVaultRoutes(req, ctx);
   if (path === "/api/extract") return handleExtractRoute(req, ctx);

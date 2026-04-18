@@ -82,7 +82,7 @@ test("400 on invalid JSON body", async () => {
 
 // ─── missing type or fields ───────────────────────────────────────────────────
 
-test("400 on missing type or fields", async () => {
+test("400 on missing type", async () => {
   const req = new Request("http://x/api/generate", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -91,7 +91,19 @@ test("400 on missing type or fields", async () => {
   const resp = await handleGenerateRoute(req, makeCtx());
   expect(resp.status).toBe(400);
   const json = await resp.json();
-  expect(json.error).toBe("missing type or fields");
+  expect(json.error).toBe("missing type");
+});
+
+test("400 when type present but neither legacy fields nor simple-body shape given", async () => {
+  const req = new Request("http://x/api/generate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "xhs-cover", count: 1 }),
+  });
+  const resp = await handleGenerateRoute(req, makeCtx());
+  expect(resp.status).toBe(400);
+  const json = await resp.json();
+  expect(json.error).toMatch(/styleKey|fields/);
 });
 
 // ─── successful 4-variant generation ─────────────────────────────────────────

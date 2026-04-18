@@ -73,19 +73,31 @@
             <button @click="selectType('wechat-cover')" :class="{ active: type === 'wechat-cover' }">公众号封面</button>
             <button @click="selectType('wechat-illust')" :class="{ active: type === 'wechat-illust' }">公众号插图</button>
           </div>
-
-          <div x-show="type" class="extract-section">
-            <button @click="doExtract()" :disabled="extracting" x-text="extracting ? '提取中…' : '提取 prompt'"></button>
+          <div x-show="type" style="font-size: 12px; color: #888; margin-top: -8px; margin-bottom: 8px;">
+            <span x-show="type === 'xhs-cover'">竖版 3:4（1242×1660）· 带标题</span>
+            <span x-show="type === 'wechat-cover'">横版 2.35:1（900×383）· 带标题 · 宽幅 banner</span>
+            <span x-show="type === 'wechat-illust'">横版 16:9（1280×720）· 纯视觉无文字</span>
           </div>
 
-          <div x-show="fields" class="fields-editor">
-            <template x-for="(_, key) in (fields || {})" :key="key">
-              <label>
-                <span x-text="key"></span>
-                <input x-model="fields[key]" />
-              </label>
-            </template>
-            <button @click="doGenerate()" :disabled="generating" x-text="generating ? '生成中…' : '生成 4 张'"></button>
+          <div x-show="type" class="fields-editor">
+            <label>
+              <span>风格</span>
+              <select x-model="styleKey" style="width: 100%; padding: 6px; font-size: 13px;">
+                <template x-for="s in stylePresets" :key="s.key">
+                  <option :value="s.key" x-text="s.label"></option>
+                </template>
+              </select>
+            </label>
+            <label>
+              <span>额外指令（可选）</span>
+              <textarea
+                x-model="extraPrompt"
+                rows="2"
+                style="width: 100%; padding: 6px; font-size: 13px; font-family: inherit;"
+                placeholder="比如：主色调用绿色；画面里有一只猫"
+              ></textarea>
+            </label>
+            <button @click="doGenerate()" :disabled="generating || !styleKey" x-text="generating ? '生成中…' : '生成 4 张'"></button>
           </div>
         </div>
       </section>
