@@ -21,6 +21,8 @@ interface ChatResponse {
 
 const REQUEST_TIMEOUT_MS = 60_000;
 
+export const retryConfig = { delay429Ms: 5_000 };
+
 async function postChat(
   client: OpenAIClient,
   body: Record<string, unknown>,
@@ -42,6 +44,10 @@ async function postChat(
     resp = await doFetch();
     if (resp.status >= 500) {
       // retry once on server error
+      resp = await doFetch();
+    } else if (resp.status === 429) {
+      // retry once on rate limit after backoff
+      await new Promise((r) => setTimeout(r, retryConfig.delay429Ms));
       resp = await doFetch();
     }
   } catch {
@@ -75,7 +81,22 @@ export async function textCompletion<T = unknown>(
   try {
     return JSON.parse(content) as T;
   } catch {
-    throw new Error(`textCompletion: response was not JSON: ${content.slice(0, 200)}`);
+    // LLM may have returned prose despite response_format. Retry once.
+    const retryBody = {
+      model: req.model,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: req.systemPrompt },
+        { role: "user", content: req.userContent },
+      ],
+    };
+    const retryJson = await postChat(client, retryBody);
+    const retryContent = retryJson.choices[0]?.message?.content ?? "";
+    try {
+      return JSON.parse(retryContent) as T;
+    } catch (e) {
+      throw new Error(`textCompletion: response was not valid JSON: ${(e as Error).message}`);
+    }
   }
 }
 
