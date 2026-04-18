@@ -73,6 +73,30 @@ bunx github:hunduncn/claudesidian-imagen
 
 ---
 
+## ⚡ Claudesidian / Claude Code 斜杠命令
+
+如果你是 [Claudesidian](https://github.com/obra/superpowers) / Claude Code 用户，装个 **`/imagen` skill**，之后在会话里一句 `/imagen` 就能启动（已在跑就直接报 URL，没在跑就后台启动）。
+
+**安装**（vault 根目录执行）：
+
+```bash
+mkdir -p .claude/skills/imagen
+curl -fsSL https://raw.githubusercontent.com/hunduncn/claudesidian-imagen/main/skills/imagen/SKILL.md \
+  -o .claude/skills/imagen/SKILL.md
+```
+
+或全局装一份（所有 vault 都能用）：
+
+```bash
+mkdir -p ~/.claude/skills/imagen
+curl -fsSL https://raw.githubusercontent.com/hunduncn/claudesidian-imagen/main/skills/imagen/SKILL.md \
+  -o ~/.claude/skills/imagen/SKILL.md
+```
+
+重开一个会话即可用 `/imagen` 调用。
+
+---
+
 ## 📖 使用
 
 选文章 → 选类型 → 选风格 → 生成 → 挑一张 → 保存。详细流程见 **[使用指南 →](docs/USAGE.md)**
