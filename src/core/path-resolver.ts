@@ -19,6 +19,12 @@ export interface ResolveSavePathResult {
 
 const ATTACHMENTS_BASE = "05_Attachments/Organized";
 
+const VERSION_PATTERNS: Record<ImageType, RegExp> = {
+  "xhs-cover":     /^xhs-cover_v(\d+)\.png$/,
+  "wechat-cover":  /^wechat-cover_v(\d+)\.png$/,
+  "wechat-illust": /^wechat-illust_v(\d+)\.png$/,
+};
+
 /** Strip `.md` and any directory parts. */
 function articleSlug(sourceMdPath: string): string {
   const base = basename(sourceMdPath);
@@ -39,7 +45,7 @@ export function resolveSavePath(input: ResolveSavePathInput): ResolveSavePathRes
  * return the next version number for a given image type prefix.
  */
 export function nextVersion(existingFiles: string[], type: ImageType): number {
-  const re = new RegExp(`^${type}_v(\\d+)\\.png$`);
+  const re = VERSION_PATTERNS[type];
   let max = 0;
   for (const name of existingFiles) {
     const m = name.match(re);

@@ -65,6 +65,17 @@ describe("resolveSavePath", () => {
     expect(result.filename).toBe("wechat-cover_v1.png");
     expect(result.relativeDir).toBe("05_Attachments/Organized/我的文章");
   });
+
+  test("keeps full basename when source path has no .md extension", () => {
+    const result = resolveSavePath({
+      vaultRoot: "/v",
+      sourceMdPath: "/v/notes/README",
+      type: "wechat-illust",
+      version: 1,
+    });
+    expect(result.relativeDir).toBe("05_Attachments/Organized/README");
+    expect(result.filename).toBe("wechat-illust_v1.png");
+  });
 });
 
 describe("buildWikilink", () => {
