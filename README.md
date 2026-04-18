@@ -51,6 +51,28 @@ bunx github:hunduncn/claudesidian-imagen
 
 ---
 
+## 🤖 让 AI Agent 帮你装
+
+如果你在用 Claude Code / Cursor / Copilot / Claudesidian 这类 AI 编码助手，**把下面整段原样发给它**，它会自动装好：
+
+````markdown
+我想在本地跑 claudesidian-imagen 把我的 Obsidian 笔记变成小红书/公众号配图。
+请按 https://github.com/hunduncn/claudesidian-imagen/blob/main/docs/DEPLOY.md 操作：
+
+1. 检查 Bun 是否已装（`bun --version`），没装就用 `curl -fsSL https://bun.sh/install | bash` 装，
+   装完提示我新开终端
+2. 切到我的 vault 根目录（我的路径是：<把你 vault 的绝对路径贴在这里>）
+3. 执行 `bunx github:hunduncn/claudesidian-imagen` 启动
+4. 启动成功后告诉我：浏览器访问 http://127.0.0.1:5173 ，
+   在设置里填 API（推荐柏拉图 AI：https://api.bltcy.ai/register?aff=9N11124980 ，
+   Base URL = https://api.bltcy.ai/v1 ，图像模型 = gemini-3.1-flash-image-preview）
+5. 如果端口被占或启动报错，帮我诊断
+````
+
+> 💡 **给 Agent 的提示**：完整命令清单、预期输出、故障排查表都在 [`docs/DEPLOY.md`](docs/DEPLOY.md)，可以直接引用那个文档按步骤执行。
+
+---
+
 ## 📖 使用
 
 选文章 → 选类型 → 选风格 → 生成 → 挑一张 → 保存。详细流程见 **[使用指南 →](docs/USAGE.md)**
