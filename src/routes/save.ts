@@ -45,6 +45,13 @@ export async function handleSaveRoute(req: Request, ctx: ServerContext): Promise
     return Response.json({ error: "missing fields" }, { status: 400 });
   }
 
+  if (body.image.kind === "url" && !body.image.url) {
+    return Response.json({ error: "missing fields" }, { status: 400 });
+  }
+  if (body.image.kind === "base64" && !body.image.base64) {
+    return Response.json({ error: "missing fields" }, { status: 400 });
+  }
+
   const sourceMdAbs = join(ctx.vaultRoot, body.sourcePath);
 
   // First call with version=1 to get absoluteDir
@@ -80,7 +87,11 @@ export async function handleSaveRoute(req: Request, ctx: ServerContext): Promise
   }
 
   // Write to disk
-  writeImage(savePath.absolutePath, bytes);
+  try {
+    writeImage(savePath.absolutePath, bytes);
+  } catch (e) {
+    return Response.json({ error: sanitizeErrorMessage(e, "save") }, { status: 500 });
+  }
 
   // Build wikilink, excluding our own filename so it doesn't collide with itself
   const allBasenames = collectAllBasenames(ctx.vaultRoot);

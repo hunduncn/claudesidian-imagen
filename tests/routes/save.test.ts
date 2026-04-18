@@ -1,6 +1,6 @@
 // tests/routes/save.test.ts
 import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, writeFileSync, mkdtempSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { handleSaveRoute } from "../../src/routes/save.ts";
@@ -116,7 +116,7 @@ test("URL image → fetches bytes and writes correct PNG content", async () => {
 
   // Verify the written file has PNG magic bytes
   const written = new Uint8Array(
-    require("node:fs").readFileSync(join(vault, json.savedPath))
+    readFileSync(join(vault, json.savedPath))
   );
   expect(written.slice(0, 4)).toEqual(PNG_MAGIC.slice(0, 4));
 });
@@ -182,7 +182,71 @@ test("502 on download failure", async () => {
   const resp = await handleSaveRoute(req, makeCtx(vault));
   expect(resp.status).toBe(502);
   const json = await resp.json();
-  // sanitizeErrorMessage returns "Internal error" for unknown errors
+  // "download failed 500" doesn't match any known pattern → falls back to "Internal error"
+  expect(json.error).toBe("Internal error");
+});
+
+// ─── Test 8: 400 when url subfield is empty ───────────────────────────────────
+
+test("400 when image.kind=url has empty url", async () => {
+  const vault = makeTmpVault();
+  const req = new Request("http://x/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourcePath: "article.md",
+      type: "xhs-cover",
+      image: { kind: "url", url: "" },
+    }),
+  });
+  const resp = await handleSaveRoute(req, makeCtx(vault));
+  expect(resp.status).toBe(400);
+  const json = await resp.json();
+  expect(json.error).toBe("missing fields");
+});
+
+// ─── Test 9: 400 when base64 subfield is empty ───────────────────────────────
+
+test("400 when image.kind=base64 has empty base64", async () => {
+  const vault = makeTmpVault();
+  const req = new Request("http://x/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourcePath: "article.md",
+      type: "xhs-cover",
+      image: { kind: "base64", mimeType: "image/png", base64: "" },
+    }),
+  });
+  const resp = await handleSaveRoute(req, makeCtx(vault));
+  expect(resp.status).toBe(400);
+  const json = await resp.json();
+  expect(json.error).toBe("missing fields");
+});
+
+// ─── Test 10: 500 when writeImage fails (dir replaced by file) ────────────────
+
+test("500 when writeImage fails due to ENOTDIR", async () => {
+  const vault = makeTmpVault();
+
+  // Replace the target directory with a file so mkdirSync throws ENOTDIR/EEXIST
+  mkdirSync(join(vault, "05_Attachments"), { recursive: true });
+  writeFileSync(join(vault, "05_Attachments/Organized"), "blocker");
+
+  const base64 = Buffer.from(PNG_MAGIC).toString("base64");
+
+  const req = new Request("http://x/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourcePath: "01_Projects/cats/article.md",
+      type: "xhs-cover",
+      image: { kind: "base64", mimeType: "image/png", base64 },
+    }),
+  });
+
+  const resp = await handleSaveRoute(req, makeCtx(vault));
+  expect(resp.status).toBe(500);
+  const json = await resp.json();
   expect(typeof json.error).toBe("string");
-  expect(json.error.length).toBeGreaterThan(0);
 });
