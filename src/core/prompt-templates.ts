@@ -9,10 +9,12 @@ export interface ExtractedFields {
   style: string;
 }
 
+type JsonSchemaPrimitive = "string" | "number" | "integer" | "boolean";
+
 interface JsonSchema {
   type: "object";
   required: string[];
-  properties: Record<string, { type: string; description: string }>;
+  properties: Record<string, { type: JsonSchemaPrimitive; description: string }>;
 }
 
 export const EXTRACT_SCHEMAS: Record<ImageType, JsonSchema> = {
@@ -46,27 +48,6 @@ export const EXTRACT_SCHEMAS: Record<ImageType, JsonSchema> = {
   },
 };
 
-const TYPE_GUIDANCE: Record<ImageType, string> = {
-  "xhs-cover":
-    "你正在为小红书封面提取要素。小红书爆款封面特点：大字标题、有钩子、emoji 点缀、3:4 竖版构图。",
-  "wechat-cover":
-    "你正在为公众号封面提取要素。公众号封面是 2.35:1 横版宽幅，标题简洁、视觉冲击。",
-  "wechat-illust":
-    "你正在为公众号正文插图提取要素。插图不需要任何文字，纯视觉表达文章核心意象。",
-};
-
-export function buildExtractSystemPrompt(type: ImageType): string {
-  const schema = EXTRACT_SCHEMAS[type];
-  return [
-    "你是一名图文设计助手，从用户提供的 Markdown 文章中提取结构化的生图字段。",
-    TYPE_GUIDANCE[type],
-    "请只输出符合下述 JSON Schema 的 JSON 对象，不要任何额外说明文字。",
-    "",
-    "JSON Schema:",
-    JSON.stringify(schema, null, 2),
-  ].join("\n");
-}
-
 interface AspectSpec {
   ratio: string;
   english: string;
@@ -78,6 +59,30 @@ const ASPECT: Record<ImageType, AspectSpec> = {
   "wechat-cover": { ratio: "2.35:1", english: "ultra-wide 2.35:1", pixels: "900x383" },
   "wechat-illust": { ratio: "16:9", english: "landscape 16:9", pixels: "1280x720" },
 };
+
+function typeGuidance(type: ImageType): string {
+  const r = ASPECT[type].ratio;
+  switch (type) {
+    case "xhs-cover":
+      return `你正在为小红书封面提取要素。小红书爆款封面特点：大字标题、有钩子、emoji 点缀、${r} 竖版构图。`;
+    case "wechat-cover":
+      return `你正在为公众号封面提取要素。公众号封面是 ${r} 横版宽幅，标题简洁、视觉冲击。`;
+    case "wechat-illust":
+      return "你正在为公众号正文插图提取要素。插图不需要任何文字，纯视觉表达文章核心意象。";
+  }
+}
+
+export function buildExtractSystemPrompt(type: ImageType): string {
+  const schema = EXTRACT_SCHEMAS[type];
+  return [
+    "你是一名图文设计助手，从用户提供的 Markdown 文章中提取结构化的生图字段。",
+    typeGuidance(type),
+    "请只输出符合下述 JSON Schema 的 JSON 对象，不要任何额外说明文字。",
+    "",
+    "JSON Schema:",
+    JSON.stringify(schema, null, 2),
+  ].join("\n");
+}
 
 export function buildImagePrompt(type: ImageType, fields: ExtractedFields): string {
   const aspect = ASPECT[type];
