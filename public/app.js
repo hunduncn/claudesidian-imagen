@@ -1,6 +1,11 @@
 // public/app.js
 
 const TEMPLATES = {
+  bltcy: {
+    baseUrl: "https://api.bltcy.ai/v1",
+    textModel: "gemini-2.5-flash",
+    imageModel: "gemini-3.1-flash-image-preview",
+  },
   "gemini-official": {
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     textModel: "gemini-2.5-flash",
@@ -13,9 +18,29 @@ const TEMPLATES = {
   },
 };
 
+/** Default platform for first-time setup. Pre-fills baseUrl + models. */
+const DEFAULT_TEMPLATE = "bltcy";
+
+/** Reverse-lookup: which template (if any) does an existing api config match? */
+function detectTemplate(api) {
+  if (!api?.baseUrl) return null;
+  const norm = (u) => (u || "").replace(/\/+$/, "");
+  const url = norm(api.baseUrl);
+  for (const [key, t] of Object.entries(TEMPLATES)) {
+    if (norm(t.baseUrl) === url) return key;
+  }
+  return null;
+}
+
 function emptyConfig() {
+  const t = TEMPLATES[DEFAULT_TEMPLATE];
   return {
-    api: { baseUrl: "", apiKey: "", textModel: "", imageModel: "" },
+    api: {
+      baseUrl: t.baseUrl,
+      apiKey: "",
+      textModel: t.textModel,
+      imageModel: t.imageModel,
+    },
     preferredPort: 5173,
   };
 }
@@ -26,7 +51,7 @@ window.appState = function appState() {
     showSettings: false,
     configReady: false,
     draftConfig: emptyConfig(),
-    settingsTemplate: "",
+    settingsTemplate: DEFAULT_TEMPLATE,
 
     // vault tree
     tree: [],
@@ -215,7 +240,27 @@ window.appState = function appState() {
 
     async refreshConfig() {
       const r = await fetch("/api/config").then((r) => r.json());
-      this.draftConfig = r.config ?? emptyConfig();
+      const cfg = r.config ?? emptyConfig();
+      // First-time setup: server has no API config yet — pre-fill with the
+      // default platform (bltcy) so the user only has to paste their API key.
+      // We detect "first-time" by checking that ALL api fields are blank.
+      const a = cfg.api ?? {};
+      const isFirstTime = !a.baseUrl && !a.apiKey && !a.textModel && !a.imageModel;
+      if (isFirstTime) {
+        const t = TEMPLATES[DEFAULT_TEMPLATE];
+        cfg.api = {
+          baseUrl: t.baseUrl,
+          apiKey: "",
+          textModel: t.textModel,
+          imageModel: t.imageModel,
+        };
+        this.settingsTemplate = DEFAULT_TEMPLATE;
+      } else {
+        // Auto-detect which template (if any) this config matches, so the
+        // dropdown doesn't lie about the current selection.
+        this.settingsTemplate = detectTemplate(a) ?? "";
+      }
+      this.draftConfig = cfg;
       this.configReady = r.complete;
     },
 

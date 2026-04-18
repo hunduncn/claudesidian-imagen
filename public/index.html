@@ -20,13 +20,21 @@
         <h2>API 配置</h2>
         <label>平台模板：
           <select x-model="settingsTemplate" @change="applyTemplate()">
-            <option value="">— 选择平台 —</option>
+            <option value="bltcy">柏拉图 AI (bltcy.ai) ⭐ 推荐</option>
             <option value="gemini-official">官方 Gemini (OpenAI 兼容)</option>
             <option value="openrouter">OpenRouter</option>
+            <option value="">— 自定义 —</option>
           </select>
         </label>
         <label>Base URL：<input x-model="draftConfig.api.baseUrl" placeholder="https://.../v1" /></label>
         <label>API Key：<input x-model="draftConfig.api.apiKey" type="password" /></label>
+        <p class="settings-hint" x-show="settingsTemplate === 'bltcy'">
+          没有 Key？
+          <a href="https://api.bltcy.ai/register?aff=9N11124980" target="_blank" rel="noopener">
+            点这里注册柏拉图 AI →
+          </a>
+          支持 Gemini 图像模型，国内直连。
+        </p>
         <label>文本模型：<input x-model="draftConfig.api.textModel" /></label>
         <label>图像模型：<input x-model="draftConfig.api.imageModel" /></label>
         <div class="settings-actions">
