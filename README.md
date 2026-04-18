@@ -6,6 +6,22 @@
 
 ---
 
+## 🖼 界面预览
+
+**小红书封面**（3:4 竖版 · 带标题 · 4 张批量）
+
+![小红书封面 - 扁平插画风格](docs/screenshots/01-xhs-cover.png)
+
+**公众号封面**（2.35:1 宽幅 · 单列 banner · 带标题）
+
+![公众号封面 - 知识博主风格](docs/screenshots/02-wechat-cover.png)
+
+**同一篇文章换风格重新生成** — 自由切换 27 个风格家族
+
+![公众号封面 - 极客终端风格](docs/screenshots/03-wechat-cover-geek.png)
+
+---
+
 ## ✨ 特性
 
 - 🌳 **直接浏览 vault** — 左侧文件树选 .md，中间预览正文
