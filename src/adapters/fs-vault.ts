@@ -28,7 +28,7 @@ const ALWAYS_EXCLUDE = new Set([".obsidian", ".git", "node_modules", ".DS_Store"
  * are trusted; if untrusted vault contents become a concern, add `fs.realpathSync`
  * comparison against `vaultRoot`'s realpath.
  */
-function ensureInsideVault(vaultRoot: string, target: string): string {
+export function ensureInsideVault(vaultRoot: string, target: string): string {
   const abs = resolve(vaultRoot, target);
   const rel = relative(vaultRoot, abs);
   if (rel.startsWith("..") || resolve(vaultRoot, rel) !== abs) {

@@ -224,7 +224,88 @@ test("400 when image.kind=base64 has empty base64", async () => {
   expect(json.error).toBe("missing fields");
 });
 
-// ─── Test 10: 500 when writeImage fails (dir replaced by file) ────────────────
+// ─── Test 10: 400 when sourcePath escapes vault ───────────────────────────────
+
+test("returns 400 when sourcePath escapes vault", async () => {
+  const vault = makeTmpVault();
+  const req = new Request("http://x/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourcePath: "../../etc/passwd.md",
+      type: "xhs-cover",
+      image: { kind: "base64", mimeType: "image/png", base64: Buffer.from(PNG_MAGIC).toString("base64") },
+    }),
+  });
+  const resp = await handleSaveRoute(req, makeCtx(vault));
+  expect(resp.status).toBe(400);
+  const json = await resp.json();
+  expect(json.error).toBe("Path is outside vault");
+});
+
+// ─── Test 11: 502 for file:// download URL ────────────────────────────────────
+
+test("returns 502 for file:// download URL", async () => {
+  const vault = makeTmpVault();
+  const req = new Request("http://x/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourcePath: "article.md",
+      type: "xhs-cover",
+      image: { kind: "url", url: "file:///etc/passwd" },
+    }),
+  });
+  const resp = await handleSaveRoute(req, makeCtx(vault));
+  expect(resp.status).toBe(502);
+  const json = await resp.json();
+  expect(json.error).toBe("Internal error");
+});
+
+// ─── Test 12: 502 for localhost download URL ──────────────────────────────────
+
+test("returns 502 for localhost download URL", async () => {
+  const vault = makeTmpVault();
+  const req = new Request("http://x/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourcePath: "article.md",
+      type: "xhs-cover",
+      image: { kind: "url", url: "http://127.0.0.1:22/secret" },
+    }),
+  });
+  const resp = await handleSaveRoute(req, makeCtx(vault));
+  expect(resp.status).toBe(502);
+  const json = await resp.json();
+  expect(json.error).toBe("Internal error");
+});
+
+// ─── Test 13: 502 when downloaded bytes fail magic-byte check ─────────────────
+
+test("returns 502 when downloaded bytes fail magic-byte check", async () => {
+  const vault = makeTmpVault();
+
+  globalThis.fetch = mock(async (_url: string) => {
+    return new Response(new Uint8Array([0x00, 0x00, 0x00, 0x00]), { status: 200 });
+  }) as any;
+
+  const req = new Request("http://x/api/save", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourcePath: "article.md",
+      type: "xhs-cover",
+      image: { kind: "url", url: "https://example.com/not-an-image.bin" },
+    }),
+  });
+  const resp = await handleSaveRoute(req, makeCtx(vault));
+  expect(resp.status).toBe(502);
+  const json = await resp.json();
+  expect(json.error).toBe("Internal error");
+});
+
+// ─── Test 14: 500 when writeImage fails (dir replaced by file) ────────────────
 
 test("500 when writeImage fails due to ENOTDIR", async () => {
   const vault = makeTmpVault();
