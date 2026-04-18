@@ -224,7 +224,7 @@ export const STYLE_FAMILIES: StyleFamily[] = [
       "xhs-cover":
         "35mm film grain lifestyle photo, Kodak Portra tones (warm skin, muted teal shadows), hazy window light, shallow depth of field, centered modern Chinese title inside a translucent soft-blur bar, effortless mood, analog film aesthetic",
       "wechat-cover":
-        "cinematic 2.35 letterbox photograph, teal-orange film grade, subtle 35mm grain, documentary wide composition, tiny restrained corner typography, film photo essay banner, no heavy titles",
+        "cinematic 2.35 letterbox photograph, teal-orange film grade, subtle 35mm grain, documentary wide composition, tiny restrained Chinese title in a corner using a thin modern Chinese sans-serif, film photo essay banner",
       "wechat-illust":
         "cinematic film-still illustration, teal-orange film grade with 35mm grain, shallow depth of field, single cinematic moment, soft window light, editorial film-photograph feel, no text",
     },
@@ -263,7 +263,7 @@ export const STYLE_FAMILIES: StyleFamily[] = [
       "xhs-cover":
         "magazine collage cutout cover, torn paper edges with scotch tape, photo knockouts, handwritten marker scribbles and highlighter accents, cream kraft background (#E8DFC8), chunky display Chinese title pasted, scrapbook zine layout",
       "wechat-cover":
-        "maximalist editorial collage banner, layered halftone faces, torn paper stamped slogans, handwritten annotations, cream kraft (#E8DFC8) background, dense mixed-media banner, anti-minimal magazine spread",
+        "maximalist editorial collage banner with a bold chunky Chinese display title pasted across it, layered halftone faces, torn paper with Chinese stamped phrases, handwritten Chinese annotations, cream kraft (#E8DFC8) background, dense mixed-media banner, anti-minimal magazine spread",
       "wechat-illust":
         "mixed media editorial collage illustration, photo cutouts combined with painted shapes, scanned paper textures and typography fragments, layered surreal composition, cream kraft (#E8DFC8) ground, magazine-collage editorial, no added text",
     },
@@ -370,7 +370,7 @@ export const STYLE_FAMILIES: StyleFamily[] = [
     supports: ["wechat-cover"],
     descriptors: {
       "wechat-cover":
-        "Memphis design geometric banner, squiggles and confetti dots, postmodern 80s palette (peach #F7A072 + mint #A4D4BB + primary blue #2F58CD), playful pattern banner, Memphis Milano style",
+        "Memphis design geometric banner with a bold chunky Chinese title as the focal element, squiggles and confetti dots, postmodern 80s palette (peach #F7A072 + mint #A4D4BB + primary blue #2F58CD), playful pattern banner, Memphis Milano style — title in a rounded playful Chinese sans-serif",
     },
   },
   {
@@ -390,7 +390,7 @@ export const STYLE_FAMILIES: StyleFamily[] = [
       // Swapped terracotta warrior / Buddha (military + religious — both trigger
       // safety) for neutral classical-sculpture motifs that read the same way.
       "wechat-cover":
-        "oriental vaporwave banner, mauve (#9C6DB5) and cyan (#4FC6D9) gradient with grid horizon, plaster greek-column or abstract ancient stone sculpture silhouette, Latin + hanzi mix typography, Chinese vaporwave masthead",
+        "oriental vaporwave banner, mauve (#9C6DB5) and cyan (#4FC6D9) gradient with grid horizon, plaster greek-column or abstract ancient stone sculpture silhouette, bold Chinese hanzi typography as the main title, Chinese vaporwave masthead",
     },
   },
   {
@@ -417,7 +417,7 @@ export const STYLE_FAMILIES: StyleFamily[] = [
     supports: ["wechat-cover"],
     descriptors: {
       "wechat-cover":
-        "dark charcoal terminal banner (#1C1F26 background), monospace code font, ASCII rule dividers, blinking cursor accent, phosphor green (#39FF14) highlights, developer-blog masthead",
+        "dark charcoal terminal-aesthetic banner (#1C1F26 background), prominent Chinese title rendered as a terminal header using an equal-width modern Chinese sans-serif (等宽中文字体), bracket and rule dividers, blinking cursor accent, phosphor green (#39FF14) accent highlights, developer-blog masthead — the headline itself is in Chinese, not English code",
     },
   },
 
@@ -663,6 +663,21 @@ export function buildSimpleImagePrompt(input: SimplePromptInput): string {
 
   if (extraPrompt && extraPrompt.trim()) {
     lines.push(`Additional user instructions: ${extraPrompt.trim()}`);
+  }
+
+  // LANGUAGE LOCK — placed last (highest attention weight) for types that
+  // have a title. Some style descriptors carry strong English/Latin priors
+  // (e.g. terminal monospace, Swiss grid, Memphis geometric, cinematic
+  // letterbox typography). Even with an earlier "Chinese font" instruction,
+  // those priors can cause the model to render the title in English, in
+  // pinyin, or as an auto-translation. This final clause overrides those
+  // defaults: exact character match, simplified Chinese only, style adapts
+  // to Chinese glyphs rather than the reverse. wechat-illust has no title
+  // and is excluded so we don't confuse the "no text at all" instruction.
+  if (type === "xhs-cover" || type === "wechat-cover") {
+    lines.push(
+      `IMPORTANT: The title text rendered in the image MUST be in Simplified Chinese (简体中文), matching character-for-character exactly: 「${articleTitle}」. Do NOT translate to English, do NOT use pinyin, do NOT substitute with Latin script. Adapt the chosen art style's typography to display these Chinese characters while preserving the style's visual character.`,
+    );
   }
 
   return lines.join("\n");
