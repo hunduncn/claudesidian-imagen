@@ -10,6 +10,7 @@ export interface Config {
     textModel: string;
     imageModel: string;
   };
+  /** Preferred port to try first; server falls back to next available if taken. */
   preferredPort: number;
   lastVaultPath?: string;
 }
@@ -26,7 +27,9 @@ export function loadConfig(home: string = homedir()): Config | null {
   if (!existsSync(p)) return null;
   try {
     return JSON.parse(readFileSync(p, "utf-8")) as Config;
-  } catch {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[config] Failed to parse ${p}: ${msg}`);
     return null;
   }
 }

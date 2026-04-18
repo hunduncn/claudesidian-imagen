@@ -1,6 +1,6 @@
 // tests/core/config.test.ts
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadConfig, saveConfig, isConfigComplete, type Config } from "../../src/config.ts";
@@ -22,7 +22,7 @@ describe("config", () => {
 
   test("loadConfig returns parsed object when file exists", () => {
     const dir = join(tmpHome, ".claudesidian-imagen");
-    require("node:fs").mkdirSync(dir);
+    mkdirSync(dir);
     writeFileSync(
       join(dir, "config.json"),
       JSON.stringify({
