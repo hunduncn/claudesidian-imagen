@@ -19,11 +19,20 @@ export interface DirEntry {
 
 const ALWAYS_EXCLUDE = new Set([".obsidian", ".git", "node_modules", ".DS_Store"]);
 
+/**
+ * Confirm `target` resolves to a path inside `vaultRoot` (lexically).
+ *
+ * Limitations: this is a purely lexical check using `path.resolve`/`path.relative`.
+ * It does NOT follow symlinks. A symlink placed inside the vault that points
+ * outside will pass this guard. For MVP this is acceptable since vault contents
+ * are trusted; if untrusted vault contents become a concern, add `fs.realpathSync`
+ * comparison against `vaultRoot`'s realpath.
+ */
 function ensureInsideVault(vaultRoot: string, target: string): string {
   const abs = resolve(vaultRoot, target);
   const rel = relative(vaultRoot, abs);
-  if (rel.startsWith("..")) {
-    throw new Error(`Path is outside vault: ${target}`);
+  if (rel.startsWith("..") || resolve(vaultRoot, rel) !== abs) {
+    throw new Error(`Path is outside vault: ${target} (resolved to ${abs})`);
   }
   return abs;
 }
@@ -35,8 +44,8 @@ export function listDir(vaultRoot: string, relPath: string): DirEntry[] {
   const entries: DirEntry[] = [];
   for (const name of items) {
     if (ALWAYS_EXCLUDE.has(name)) continue;
-    // hide all dotfiles (starts with ".")
-    if (name.startsWith(".")) continue;
+    // Hide names starting with `.` (dotfiles / .obsidian / .git) or `_` (drafts/templates convention)
+    if (name.startsWith(".") || name.startsWith("_")) continue;
     const childAbs = join(abs, name);
     let isDir = false;
     try {
@@ -80,6 +89,13 @@ export function listFilesIn(absoluteDir: string): string[] {
   });
 }
 
+/**
+ * Walk the entire vault recursively and return a Set of all file basenames.
+ * Used to decide whether a short wikilink is unique.
+ *
+ * Note: synchronous full-directory walk. On a large vault (10k+ files) this
+ * can block the event loop for tens of milliseconds. Do not call in a hot path.
+ */
 export function collectAllBasenames(vaultRoot: string): Set<string> {
   const out = new Set<string>();
   const walk = (dir: string) => {
