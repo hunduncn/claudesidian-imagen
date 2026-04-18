@@ -54,4 +54,28 @@ describe("/api/vault routes", () => {
     const resp = await handleVaultRoutes(req, makeCtx(vault));
     expect(resp.status).toBe(400);
   });
+
+  test("GET /api/vault/tree returns 400 for path escape", async () => {
+    const req = new Request("http://x/api/vault/tree?dir=../../etc");
+    const resp = await handleVaultRoutes(req, makeCtx(vault));
+    expect(resp.status).toBe(400);
+    const json = await resp.json();
+    expect(typeof json.error).toBe("string");
+  });
+
+  test("GET /api/vault/read returns 400 for empty path", async () => {
+    const req = new Request("http://x/api/vault/read?path=");
+    const resp = await handleVaultRoutes(req, makeCtx(vault));
+    expect(resp.status).toBe(400);
+    const json = await resp.json();
+    expect(typeof json.error).toBe("string");
+  });
+
+  test("GET /api/vault/read returns 400 for path escape", async () => {
+    const req = new Request("http://x/api/vault/read?path=../outside.md");
+    const resp = await handleVaultRoutes(req, makeCtx(vault));
+    expect(resp.status).toBe(400);
+    const json = await resp.json();
+    expect(typeof json.error).toBe("string");
+  });
 });
