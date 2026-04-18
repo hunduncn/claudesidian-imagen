@@ -1,5 +1,8 @@
 // tests/adapters/openai-compat.test.ts
 import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
+// NOTE: These tests monkey-patch globalThis.fetch and rely on Bun running
+// describe blocks sequentially. If parallel test execution is ever enabled,
+// switch to mock.module or dependency-inject fetch.
 import {
   textCompletion,
   imageCompletion,
@@ -87,7 +90,7 @@ describe("textCompletion", () => {
 
     await expect(
       textCompletion(fakeClient, { model: "m", systemPrompt: "s", userContent: "u" }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("textCompletion: response was not JSON");
   });
 });
 

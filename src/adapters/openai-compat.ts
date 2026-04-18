@@ -19,6 +19,8 @@ interface ChatResponse {
   choices: Array<{ message: { content: string } }>;
 }
 
+const REQUEST_TIMEOUT_MS = 60_000;
+
 async function postChat(
   client: OpenAIClient,
   body: Record<string, unknown>,
@@ -32,11 +34,18 @@ async function postChat(
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
-  let resp = await doFetch();
-  if (resp.status >= 500) {
-    // single retry on server error
+  let resp: Response;
+  try {
+    resp = await doFetch();
+    if (resp.status >= 500) {
+      // retry once on server error
+      resp = await doFetch();
+    }
+  } catch {
+    // retry once on network error (DNS/reset/timeout)
     resp = await doFetch();
   }
   if (!resp.ok) {
@@ -50,10 +59,10 @@ async function postChat(
  * Call a chat completion expecting a JSON object in the response content.
  * Throws if the content does not parse as JSON.
  */
-export async function textCompletion(
+export async function textCompletion<T = unknown>(
   client: OpenAIClient,
   req: TextCompletionRequest,
-): Promise<unknown> {
+): Promise<T> {
   const json = await postChat(client, {
     model: req.model,
     response_format: { type: "json_object" },
@@ -64,7 +73,7 @@ export async function textCompletion(
   });
   const content = json.choices[0]?.message?.content ?? "";
   try {
-    return JSON.parse(content);
+    return JSON.parse(content) as T;
   } catch {
     throw new Error(`textCompletion: response was not JSON: ${content.slice(0, 200)}`);
   }
