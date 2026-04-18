@@ -1,8 +1,15 @@
 {
-  "name": "@claudesidian/imagen",
-  "version": "0.1.0",
+  "name": "claudesidian-imagen",
+  "version": "0.2.0",
   "type": "module",
   "description": "Local web tool to turn Claudesidian vault .md articles into 小红书/公众号 covers and illustrations",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hunduncn/claudesidian-imagen.git"
+  },
+  "homepage": "https://github.com/hunduncn/claudesidian-imagen",
+  "bugs": "https://github.com/hunduncn/claudesidian-imagen/issues",
+  "keywords": ["obsidian", "claudesidian", "image-generation", "gemini", "xiaohongshu", "wechat"],
   "bin": {
     "claudesidian-imagen": "./bin/claudesidian-imagen.ts"
   },
@@ -10,6 +17,7 @@
     "bin",
     "src",
     "public",
+    "docs",
     "README.md"
   ],
   "scripts": {
