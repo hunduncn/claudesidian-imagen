@@ -96,7 +96,7 @@ export async function startServer(): Promise<void> {
     vaultRoot,
     getConfig: () => cfg,
     setConfig: (c) => {
-      cfg = { ...c, lastVaultPath: vaultRoot };
+      cfg = { ...c };
       saveConfig(cfg);
     },
   };

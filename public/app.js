@@ -1,11 +1,6 @@
 // public/app.js
 
 const TEMPLATES = {
-  "gpt-best": {
-    baseUrl: "https://<your-relay-host>/v1",
-    textModel: "gemini-2.5-flash",
-    imageModel: "gemini-3.1-flash-image-preview",
-  },
   "gemini-official": {
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     textModel: "gemini-2.5-flash",

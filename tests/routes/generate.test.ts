@@ -1,5 +1,5 @@
 // tests/routes/generate.test.ts
-import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
+import { test, expect, mock, beforeEach, afterEach } from "bun:test";
 import { handleGenerateRoute } from "../../src/routes/generate.ts";
 import type { ServerContext } from "../../src/server.ts";
 

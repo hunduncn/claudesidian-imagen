@@ -12,7 +12,6 @@ export interface Config {
   };
   /** Preferred port to try first; server falls back to next available if taken. */
   preferredPort: number;
-  lastVaultPath?: string;
 }
 
 const CONFIG_DIR = ".claudesidian-imagen";
