@@ -44,6 +44,21 @@ window.appState = function appState() {
     saving: false,
     lastWikilink: "",
 
+    // transient error banner
+    errorToast: "",
+    _errorTimer: null,
+
+    showError(msg) {
+      this.errorToast = msg;
+      if (this._errorTimer) clearTimeout(this._errorTimer);
+      this._errorTimer = setTimeout(() => { this.errorToast = ""; }, 6000);
+    },
+
+    dismissError() {
+      this.errorToast = "";
+      if (this._errorTimer) clearTimeout(this._errorTimer);
+    },
+
     async init() {
       await this.refreshConfig();
       if (this.configReady) {
@@ -85,7 +100,7 @@ window.appState = function appState() {
         body: JSON.stringify(this.draftConfig),
       });
       if (!r.ok) {
-        alert("保存失败");
+        this.showError("保存失败");
         return;
       }
       await this.refreshConfig();
@@ -152,7 +167,7 @@ window.appState = function appState() {
           body: JSON.stringify({ content: this.articleContent, type: this.type }),
         }).then((r) => r.json());
         if (r.error) {
-          alert("提取失败：" + r.error);
+          this.showError("提取失败：" + r.error);
           return;
         }
         this.fields = r.fields;
@@ -211,7 +226,7 @@ window.appState = function appState() {
           }),
         }).then((r) => r.json());
         if (r.error) {
-          alert("保存失败：" + r.error);
+          this.showError("保存失败：" + r.error);
           return;
         }
         this.lastWikilink = r.wikilink;

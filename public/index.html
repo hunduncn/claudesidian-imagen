@@ -8,6 +8,12 @@
 </head>
 <body>
   <div id="app" x-data="appState()" x-init="init()" x-cloak>
+    <!-- Error toast -->
+    <div class="error-toast" x-show="errorToast" @click="dismissError()" x-transition>
+      <span x-text="errorToast"></span>
+      <button class="toast-close" @click.stop="dismissError()">×</button>
+    </div>
+
     <!-- Settings overlay -->
     <div class="settings-overlay" x-show="showSettings" @click.self="closeSettings()">
       <div class="settings-modal">
